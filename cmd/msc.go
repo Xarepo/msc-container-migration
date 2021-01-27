@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 
+	"github.com/Xarepo/msc-container-migration/internal/cli"
 	"github.com/Xarepo/msc-container-migration/internal/logger"
 	"github.com/Xarepo/msc-container-migration/internal/runc"
 	"github.com/rs/zerolog"
@@ -24,4 +25,7 @@ func main() {
 	log.Debug().Str("Runc version", v.Runc).Send()
 	log.Debug().Str("Commit", v.Commit).Send()
 	log.Debug().Str("Runc-spec version", v.Spec).Send()
+
+	cmd := cli.Parse()
+	cmd.Execute()
 }
