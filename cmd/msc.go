@@ -6,12 +6,15 @@ import (
 	"github.com/Xarepo/msc-container-migration/internal/cli"
 	"github.com/Xarepo/msc-container-migration/internal/logger"
 	"github.com/Xarepo/msc-container-migration/internal/runc"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
 func main() {
-	if err := logger.InitLogger(zerolog.DebugLevel.String()); err != nil {
+	logLevel := os.Getenv("LOG_LEVEL")
+	if logLevel == "" {
+		logLevel = "info"
+	}
+	if err := logger.InitLogger(logLevel); err != nil {
 		log.Error().Msg("Failed to initialize logger, exiting...")
 		os.Exit(1)
 	}
