@@ -12,8 +12,8 @@ import (
 func Parse() CliCommand {
 	startCmd := flag.NewFlagSet("start", flag.ExitOnError)
 
-	startContainerId := startCmd.String("container-id", "", "the id of the container")
-	startBundlePath := startCmd.String("bundle-path", "", "the path to the oci-bundle")
+	runContainerId := startCmd.String("container-id", "", "the id of the container")
+	runBundlePath := startCmd.String("bundle-path", "", "the path to the oci-bundle")
 
 	if len(os.Args) < 2 {
 		flag.PrintDefaults()
@@ -21,7 +21,7 @@ func Parse() CliCommand {
 	}
 
 	switch os.Args[1] {
-	case "start":
+	case "run":
 		startCmd.Parse(os.Args[2:])
 	default:
 		flag.PrintDefaults()
@@ -29,13 +29,13 @@ func Parse() CliCommand {
 	}
 
 	if startCmd.Parsed() {
-		if *startContainerId == "" || *startBundlePath == "" {
+		if *runContainerId == "" || *runBundlePath == "" {
 			log.Error().Msg("Missing value")
 			startCmd.PrintDefaults()
 			os.Exit(1)
 		}
 
-		return cli_commands.Start{BundlePath: startBundlePath, ContainerId: startContainerId}
+		return cli_commands.Run{BundlePath: runBundlePath, ContainerId: runContainerId}
 	}
 	return nil
 }
