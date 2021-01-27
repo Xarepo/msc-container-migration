@@ -1,6 +1,7 @@
 package cli_commands
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/Xarepo/msc-container-migration/internal/runc"
@@ -31,12 +32,42 @@ func (cmd Run) Execute() error {
 	}()
 
 	// Pre-dump loop
-	ticker := time.NewTicker(500 * time.Millisecond)
+	ticker := time.NewTicker(2 * time.Second)
+	dumpFreq := 3
 	go func() {
+		n := 0
 		for {
 			select {
 			case <-ticker.C:
-				log.Trace().Str("ContainerId", *cmd.ContainerId).Msg("Pre-dumping")
+				parentPath := ""
+				if n != 0 {
+					parentPrefix := 'p'
+					if (n-1)%dumpFreq == 0 {
+						parentPrefix = 'd'
+
+					}
+					parentPath =
+						fmt.Sprintf(
+							"dumps/%c%d",
+							parentPrefix,
+							n-1)
+				}
+				if n%dumpFreq == 0 {
+					runc.Dump(
+						*cmd.ContainerId,
+						fmt.Sprintf(
+							"dumps/d%d",
+							n),
+						parentPath)
+				} else {
+					runc.PreDump(
+						*cmd.ContainerId,
+						fmt.Sprintf(
+							"dumps/p%d",
+							n),
+						parentPath)
+				}
+				n++
 			}
 		}
 	}()
