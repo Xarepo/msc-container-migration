@@ -1,1 +1,9 @@
-checkpoint
+# dumpfolder
+dumps
+
+#oci-bundle
+config.json
+rootfs
+
+#IDE/editor
+.vim
