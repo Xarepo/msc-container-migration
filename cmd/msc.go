@@ -3,14 +3,16 @@ package main
 import (
 	"os"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/Xarepo/msc-container-migration/internal/cli"
 	"github.com/Xarepo/msc-container-migration/internal/logger"
 	"github.com/Xarepo/msc-container-migration/internal/runc"
-	"github.com/rs/zerolog/log"
 )
 
 func main() {
 	logLevel := os.Getenv("LOG_LEVEL")
+
 	if logLevel == "" {
 		logLevel = "info"
 	}

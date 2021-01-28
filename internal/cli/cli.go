@@ -4,16 +4,23 @@ import (
 	"flag"
 	"os"
 
+	"github.com/rs/zerolog/log"
+
 	. "github.com/Xarepo/msc-container-migration/internal/cli_command"
 	"github.com/Xarepo/msc-container-migration/internal/cli_commands"
-	"github.com/rs/zerolog/log"
 )
 
 func Parse() CliCommand {
 	startCmd := flag.NewFlagSet("start", flag.ExitOnError)
 
-	runContainerId := startCmd.String("container-id", "", "the id of the container")
-	runBundlePath := startCmd.String("bundle-path", "", "the path to the oci-bundle")
+	runContainerId := startCmd.String(
+		"container-id",
+		"",
+		"the id of the container")
+	runBundlePath := startCmd.String(
+		"bundle-path",
+		"",
+		"the path to the oci-bundle")
 
 	if len(os.Args) < 2 {
 		flag.PrintDefaults()
@@ -35,7 +42,10 @@ func Parse() CliCommand {
 			os.Exit(1)
 		}
 
-		return cli_commands.Run{BundlePath: runBundlePath, ContainerId: runContainerId}
+		return cli_commands.Run{
+			BundlePath:  runBundlePath,
+			ContainerId: runContainerId,
+		}
 	}
 	return nil
 }

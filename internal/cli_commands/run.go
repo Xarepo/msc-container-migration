@@ -19,7 +19,10 @@ type Run struct {
 // container is run in a goroutine to not block execution.
 // The function does not return until the container has exited.
 func (cmd Run) Execute() error {
-	log.Trace().Str("BundlePath", *cmd.BundlePath).Str("ContainerId", *cmd.ContainerId).Msg("Executing run command")
+	log.Trace().
+		Str("BundlePath", *cmd.BundlePath).
+		Str("ContainerId", *cmd.ContainerId).
+		Msg("Executing run command")
 	result := make(chan int)
 	go func() {
 		status, err := runc.Run(*cmd.ContainerId, *cmd.BundlePath)
@@ -44,27 +47,14 @@ func (cmd Run) Execute() error {
 					parentPrefix := 'p'
 					if (n-1)%dumpFreq == 0 {
 						parentPrefix = 'd'
-
 					}
 					parentPath =
-						fmt.Sprintf(
-							"dumps/%c%d",
-							parentPrefix,
-							n-1)
+						fmt.Sprintf("dumps/%c%d", parentPrefix, n-1)
 				}
 				if n%dumpFreq == 0 {
-					runc.Dump(
-						*cmd.ContainerId,
-						fmt.Sprintf(
-							"dumps/d%d",
-							n),
-						parentPath)
+					runc.Dump(*cmd.ContainerId, fmt.Sprintf("dumps/d%d", n), parentPath)
 				} else {
-					runc.PreDump(
-						*cmd.ContainerId,
-						fmt.Sprintf(
-							"dumps/p%d",
-							n),
+					runc.PreDump(*cmd.ContainerId, fmt.Sprintf("dumps/p%d", n),
 						parentPath)
 				}
 				n++
