@@ -44,8 +44,8 @@ func PreDump(id, imagePath, parentPath string) {
 	}
 }
 
-// Dumps the container, but leaves it running.
-func Dump(id, imagePath, parentPath string) {
+// Dumps the entire container state.
+func Dump(id, imagePath, parentPath string, leaveRunning bool) {
 	log.Trace().
 		Str("ContainerId", id).
 		Str("ImagePath", imagePath).
@@ -57,8 +57,34 @@ func Dump(id, imagePath, parentPath string) {
 	if parentPath != "" {
 		opts.ParentPath = parentPath
 	}
-	err := r.Checkpoint(context.Background(), id, &opts, _runc.LeaveRunning)
+
+	actions := []_runc.CheckpointAction{}
+	if leaveRunning {
+		actions = []_runc.CheckpointAction{_runc.LeaveRunning}
+	}
+
+	err := r.Checkpoint(context.Background(), id, &opts, actions...)
 	if err != nil {
 		log.Error().Str("Error", err.Error()).Msg("Failed to dump container")
 	}
+}
+
+func Restore(id, imagePath, bundle string) (int, error) {
+	log.Trace().
+		Str("ContainerId", id).
+		Str("ImagePath", imagePath).
+		Msg("Restoring container")
+
+	io, err := _runc.NewSTDIO()
+	if err != nil {
+		log.Error().Str("Error", err.Error()).Msg("Failed to create new STDIO")
+	}
+
+	r := &_runc.Runc{}
+	opts := &_runc.RestoreOpts{
+		IO:             io,
+		CheckpointOpts: _runc.CheckpointOpts{ImagePath: imagePath},
+	}
+	// TODO: No use in returning here as this is run in a goroutine
+	return r.Restore(context.Background(), id, bundle, opts)
 }

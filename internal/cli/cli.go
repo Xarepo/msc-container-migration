@@ -8,19 +8,30 @@ import (
 
 	. "github.com/Xarepo/msc-container-migration/internal/cli_command"
 	"github.com/Xarepo/msc-container-migration/internal/cli_commands"
+	"github.com/Xarepo/msc-container-migration/internal/udp_listener"
 )
 
 func Parse() CliCommand {
-	startCmd := flag.NewFlagSet("start", flag.ExitOnError)
-
-	runContainerId := startCmd.String(
+	// Run command
+	runCmd := flag.NewFlagSet("run", flag.ExitOnError)
+	runContainerId := runCmd.String(
 		"container-id",
 		"",
 		"the id of the container")
-	runBundlePath := startCmd.String(
+	runBundlePath := runCmd.String(
 		"bundle-path",
 		"",
 		"the path to the oci-bundle")
+
+	// Migrate command
+	migrateCmd := flag.NewFlagSet("migrate", flag.ExitOnError)
+	migrateContainerId := migrateCmd.String(
+		"container-id",
+		"",
+		"the id of the container")
+
+	// Listen command
+	listenCmd := flag.NewFlagSet("listen", flag.ExitOnError)
 
 	if len(os.Args) < 2 {
 		flag.PrintDefaults()
@@ -29,16 +40,20 @@ func Parse() CliCommand {
 
 	switch os.Args[1] {
 	case "run":
-		startCmd.Parse(os.Args[2:])
+		runCmd.Parse(os.Args[2:])
+	case "migrate":
+		migrateCmd.Parse(os.Args[2:])
+	case "listen":
+		listenCmd.Parse(os.Args[2:])
 	default:
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
 
-	if startCmd.Parsed() {
+	if runCmd.Parsed() {
 		if *runContainerId == "" || *runBundlePath == "" {
 			log.Error().Msg("Missing value")
-			startCmd.PrintDefaults()
+			runCmd.PrintDefaults()
 			os.Exit(1)
 		}
 
@@ -47,5 +62,22 @@ func Parse() CliCommand {
 			ContainerId: runContainerId,
 		}
 	}
+
+	if migrateCmd.Parsed() {
+		if *migrateContainerId == "" {
+			log.Error().Msg("Missing value")
+			migrateCmd.PrintDefaults()
+			os.Exit(1)
+		}
+
+		return cli_commands.Migrate{
+			ContainerId: migrateContainerId,
+		}
+	}
+
+	if listenCmd.Parsed() {
+		return cli_commands.Listen{RPCListener: udp_listener.UDPListener{}}
+	}
+
 	return nil
 }
