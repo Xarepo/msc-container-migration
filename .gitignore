@@ -7,3 +7,7 @@ rootfs
 
 #IDE/editor
 .vim
+.vimspector.json
+
+#environment
+.env
