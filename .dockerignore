@@ -1,0 +1,8 @@
+**
+
+# Only copy necessary files
+!/internal
+!/cmd
+!/go.mod
+!/go.sum
+!/docker/docker-entrypoint.sh
