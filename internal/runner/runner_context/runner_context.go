@@ -39,14 +39,14 @@ import (
 // dumped image as part of a migration process.
 // NOTE: The runner should always have this status for EXACTLY one cycle of the
 // runner's loop.
-type RunnerStatus int
+type RunnerStatus string
 
 const (
-	Stopped RunnerStatus = iota
-	StandBy
-	Running
-	Migrating
-	Restoring
+	Stopped   RunnerStatus = "Stopped"
+	StandBy                = "StandBy"
+	Running                = "Running"
+	Migrating              = "Migrating"
+	Restoring              = "Restoring"
 )
 
 // RunnerContext represents the state of the runner.
@@ -86,7 +86,7 @@ func New(containerId, bundlePath, imagePath string) RunnerContext {
 }
 
 func (ctx *RunnerContext) SetStatus(status RunnerStatus) {
-	log.Debug().Int("Status", int(status)).Msg("Status set")
+	log.Debug().Str("Status", string(status)).Msg("Status set")
 	ctx.status = status
 }
 

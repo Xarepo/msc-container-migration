@@ -22,6 +22,7 @@ func (udp_listener UDPListener) Listen(callback func(buf []byte)) {
 	var err error
 	if os.Getenv("RPC_PORT") == "" {
 		log.Warn().Msg("Environment variable RPC_PORT not set, defaulting to 1234.")
+		rpcPort = 1234
 	} else {
 		rpcPort, err = strconv.Atoi(os.Getenv("RPC_PORT"))
 		if err != nil {

@@ -27,14 +27,14 @@ func Run(id, bundle string) (int, error) {
 
 // PreDump the container, leaving it running.
 func PreDump(id, imagePath, parentPath string) {
-	log.Trace().
+	log.Debug().
 		Str("ContainerId", id).
 		Str("ImagePath", imagePath).
 		Str("ParentPath", parentPath).
 		Msg("Pre-dumping container")
 
 	r := &_runc.Runc{}
-	opts := _runc.CheckpointOpts{ImagePath: imagePath}
+	opts := _runc.CheckpointOpts{ImagePath: imagePath, AllowTerminal: true}
 	if parentPath != "" {
 		opts.ParentPath = parentPath
 	}
@@ -46,14 +46,14 @@ func PreDump(id, imagePath, parentPath string) {
 
 // Dumps the entire container state.
 func Dump(id, imagePath, parentPath string, leaveRunning bool) {
-	log.Trace().
+	log.Debug().
 		Str("ContainerId", id).
 		Str("ImagePath", imagePath).
 		Str("ParentPath", parentPath).
 		Msg("Dumping container")
 
 	r := &_runc.Runc{}
-	opts := _runc.CheckpointOpts{ImagePath: imagePath}
+	opts := _runc.CheckpointOpts{ImagePath: imagePath, AllowTerminal: true}
 	if parentPath != "" {
 		opts.ParentPath = parentPath
 	}
@@ -70,9 +70,10 @@ func Dump(id, imagePath, parentPath string, leaveRunning bool) {
 }
 
 func Restore(id, imagePath, bundle string) (int, error) {
-	log.Trace().
+	log.Debug().
 		Str("ContainerId", id).
 		Str("ImagePath", imagePath).
+		Str("BundlePath", bundle).
 		Msg("Restoring container")
 
 	io, err := _runc.NewSTDIO()

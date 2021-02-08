@@ -2,6 +2,7 @@ package image
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"strconv"
 
@@ -24,12 +25,16 @@ func Restore(imagePath string) *Image {
 	return &Image{preDump: false, nr: nr, dumpOffset: 0}
 }
 
-func (img Image) String() string {
+func (img Image) Path() string {
+	return fmt.Sprintf("%s/%s", os.Getenv("SCP_REMOTE_PATH"), img.Base())
+}
+
+func (img Image) Base() string {
 	prefix := 'd'
 	if img.preDump {
 		prefix = 'p'
 	}
-	return fmt.Sprintf("dumps/%c%d", prefix, img.nr)
+	return fmt.Sprintf("%c%d", prefix, img.nr)
 }
 
 func (img Image) PreDump() bool {

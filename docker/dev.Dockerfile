@@ -8,7 +8,10 @@ RUN apt-get update && apt-get install -y \
 	make \
 	golang \
 	go-md2man \
-	ca-certificates
+	ca-certificates \
+	runc \
+	criu \
+	ssh
 
 # Compile oci-runtime-tools
 ENV GOPATH=/go
@@ -17,22 +20,6 @@ RUN cd $GOPATH/src/github.com/opencontainers/runtime-tools && make && make insta
 RUN oci-runtime-tool generate --args "sh" --args "/count.sh" \
 	--linux-namespace-remove network  > config.json
 
-COPY . .
-
-RUN go build cmd/msc.go
-
-FROM ubuntu:20.10
-WORKDIR /app
-
-# Copy binaries
-COPY --from=0 /app/msc .
-COPY --from=0 /app/config.json .
-
-RUN apt-get update && apt-get install -y runc criu ssh 
-
-# Add the binaries to the path
-ENV PATH /app:$PATH
-
 COPY docker/docker-entrypoint.sh .
 RUN chmod +x docker-entrypoint.sh
 
@@ -40,5 +27,12 @@ RUN chmod +x docker-entrypoint.sh
 # This will also be the ssh password
 RUN sed -ir 's/^#*PermitRootLogin .*/PermitRootLogin yes/' /etc/ssh/sshd_config
 RUN echo "root:root" | chpasswd
+
+COPY . .
+
+RUN go build cmd/msc.go
+
+# Add the binaries to the path
+ENV PATH /app:$PATH
 
 ENTRYPOINT ["sh", "docker-entrypoint.sh"]
