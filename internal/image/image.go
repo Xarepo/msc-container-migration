@@ -2,6 +2,8 @@ package image
 
 import (
 	"fmt"
+	"io/ioutil"
+	"math"
 	"os"
 	"regexp"
 	"strconv"
@@ -23,6 +25,28 @@ func Restore(imagePath string) *Image {
 	}
 
 	return &Image{preDump: false, nr: nr, dumpOffset: 0}
+}
+
+func Recover() *Image {
+	entries, err := ioutil.ReadDir(os.Getenv("DUMP_PATH"))
+	if err != nil {
+		log.Error().Str("Error", err.Error()).Msg("Failed to read recovery directory")
+	}
+
+	latestDumpNum := math.Inf(-1)
+	r := regexp.MustCompile("[0-9]+")
+	for _, entry := range entries {
+		num, _ := strconv.Atoi(r.FindString(entry.Name()))
+		if entry.IsDir() && entry.Name()[0] == 'd' && float64(num) > latestDumpNum {
+			latestDumpNum = float64(num)
+		}
+	}
+
+	latestDump := fmt.Sprintf("d%d", int(latestDumpNum))
+	log.Debug().Str("Dump", latestDump).Msg("Latest possible recovery dump determined")
+	return &Image{
+		preDump: false, nr: int(latestDumpNum), dumpOffset: 0,
+	}
 }
 
 func (img Image) Path() string {

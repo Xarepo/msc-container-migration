@@ -23,7 +23,6 @@ func (migrate Migrate) Execute(ctx *runner_context.RunnerContext) {
 		Str("ContainerId", migrate.ContainerId).
 		Msg("Executing migrate IPC")
 	ctx.SetStatus(runner_context.Migrating)
-	ctx.TimerInterrupt <- true
 }
 
 func (migrate *Migrate) ParseFlags(flags []string) error {

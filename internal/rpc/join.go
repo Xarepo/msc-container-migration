@@ -35,7 +35,19 @@ func (j *Join) Execute(ctx *runner_context.RunnerContext, remoteAddr string) {
 		Int("RPCPort", j.rpcPort).
 		Int("FileTransferPort", j.fileTransferPort).
 		Msg("Executing JOIN RPC")
-	ctx.AddTarget(remote_target.New(host, j.rpcPort, j.dumpPath, j.fileTransferPort))
+
+	target := remote_target.New(host, j.rpcPort, j.dumpPath, j.fileTransferPort)
+
+	conn, err := net.Dial("udp4", target.RPCAddr())
+	if err != nil {
+		log.Error().Str("Error", err.Error()).Msg("Failed to dial UDP")
+		return
+	}
+	defer conn.Close()
+	rpc := NewJoinAck(ctx.ContainerId)
+	fmt.Fprintf(conn, rpc.String())
+
+	ctx.AddTarget(target)
 }
 
 func (j *Join) ParseFlags(fields []string) error {

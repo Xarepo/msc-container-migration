@@ -16,8 +16,10 @@ type RPC interface {
 
 // Available RPCs
 const (
-	RPC_MIGRATE = "MIGRATE"
-	RPC_JOIN    = "JOIN"
+	RPC_MIGRATE  = "MIGRATE"
+	RPC_JOIN     = "JOIN"
+	RPC_PING     = "PING"
+	RPC_JOIN_ACK = "JOIN_ACK"
 )
 
 func ParseRPC(message string) RPC {
@@ -29,6 +31,10 @@ func ParseRPC(message string) RPC {
 		rpc = &Migrate{}
 	case RPC_JOIN:
 		rpc = &Join{}
+	case RPC_PING:
+		rpc = &Ping{}
+	case RPC_JOIN_ACK:
+		rpc = &JoinAck{}
 	default:
 		log.Error().Str("RPC", fields[0]).Msg("Received unknown RPC")
 		return nil

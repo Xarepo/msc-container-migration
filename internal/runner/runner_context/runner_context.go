@@ -56,6 +56,7 @@ const (
 	Migrating              = "Migrating"
 	Restoring              = "Restoring"
 	Joining                = "Joining"
+	Recovery               = "Recovery"
 )
 
 // RunnerContext represents the state of the runner.
@@ -75,13 +76,14 @@ type RunnerContext struct {
 	IPCListener
 	RPCPort int
 	RPCListener
-	status RunnerStatus
-	// This can be used to interrupt the timer that, when it expires, triggers
-	// dumping during running status.
-	TimerInterrupt chan bool
-	lock           sync.Mutex
-	Targets        []remote_target.RemoteTarget
-	Source         string
+	status        RunnerStatus
+	lock          sync.Mutex
+	Targets       []remote_target.RemoteTarget
+	Source        string
+	PingInterrupt chan bool
+	// This channel can be read from when a RPC needs to wait for a corresponding
+	// ACK message to be received.
+	AckWait chan bool
 }
 
 func New(containerId, bundlePath, imagePath string) RunnerContext {
@@ -105,10 +107,11 @@ func New(containerId, bundlePath, imagePath string) RunnerContext {
 		RPCListener:     udp_listener.UDPListener{},
 		RPCPort:         rpcPort,
 		status:          Stopped,
-		TimerInterrupt:  make(chan bool),
 		LatestImage:     nil,
 		Targets:         []remote_target.RemoteTarget{},
 		Source:          "",
+		PingInterrupt:   make(chan bool),
+		AckWait:         make(chan bool),
 	}
 }
 

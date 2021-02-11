@@ -119,45 +119,76 @@ func (runner *Runner) runContainer(imagePath string) {
 
 func (runner *Runner) Loop() {
 	dumpFreq := 3
+
+LOOP:
 	for {
 		switch runner.RunnerStatus() {
 		case runner_context.Running:
-			select {
-			case <-time.After(2 * time.Second):
-				// Lock dumping stage as to avoid conflicted states
-				runner.WithLock(func() {
-					nextImg := image.FirstImage()
-					parentPath := ""
-					if runner.LatestImage != nil {
-						nextImg = runner.LatestImage.NextImage(dumpFreq)
-						// Parentpath is relative to the parent directory of the image path
-						// so only the directory name (not the full path) should be used
-						parentPath = runner.LatestImage.Base()
-					}
+			dumpTick := time.NewTicker(2 * time.Second)
+			pingTick := time.NewTicker(1 * time.Second)
+			done := make(chan bool)
+			go func() {
+				for runner.RunnerStatus() == runner_context.Running {
+				}
+				done <- true
+			}()
+			for {
+				select {
+				case <-dumpTick.C:
+					// Lock dumping stage as to avoid conflicted states
+					runner.WithLock(func() {
+						nextImg := image.FirstImage()
+						parentPath := ""
+						if runner.LatestImage != nil {
+							nextImg = runner.LatestImage.NextImage(dumpFreq)
+							// Parentpath is relative to the parent directory of the image path
+							// so only the directory name (not the full path) should be used
+							parentPath = runner.LatestImage.Base()
+						}
 
-					if nextImg.PreDump() {
-						runc.PreDump(
-							runner.ContainerId,
-							nextImg.Path(),
-							parentPath,
-						)
-					} else {
-						runc.Dump(
-							runner.ContainerId,
-							nextImg.Path(),
-							parentPath,
-							true,
-						)
-					}
+						if nextImg.PreDump() {
+							runc.PreDump(
+								runner.ContainerId,
+								nextImg.Path(),
+								parentPath,
+							)
+						} else {
+							runc.Dump(
+								runner.ContainerId,
+								nextImg.Path(),
+								parentPath,
+								true,
+							)
+						}
 
+						for _, target := range runner.Targets {
+							sftp.CopyToRemote(nextImg.Path(), &target)
+						}
+
+						runner.LatestImage = nextImg
+					})
+				case <-pingTick.C:
 					for _, target := range runner.Targets {
-						sftp.CopyToRemote(nextImg.Path(), &target)
-					}
+						log.Trace().Msg("Pinging remote")
 
-					runner.LatestImage = nextImg
-				})
-			case <-runner.TimerInterrupt:
-				log.Trace().Msg("Runner timer interrupted, cancelling dumping")
+						conn, err := net.Dial("udp4", target.RPCAddr())
+						if err != nil {
+							log.Error().Str("Error", err.Error()).Msg("Failed to dial UDP")
+							return
+						}
+						defer conn.Close()
+
+						rpc := rpc.Ping{}
+						log.Trace().
+							Str("RPC", rpc.String()).
+							Str("Target", conn.RemoteAddr().String()).
+							Msg("Sending RPC")
+						fmt.Fprintf(conn, rpc.String())
+					}
+				case <-done:
+					log.Trace().Msg("DONE RUNNING")
+					goto LOOP
+				}
 			}
 		case runner_context.Migrating:
 			log.Debug().
@@ -243,7 +274,38 @@ func (runner *Runner) Loop() {
 				Msg("Sending RPC")
 			fmt.Fprintf(conn, rpc.String())
 
+			<-runner.AckWait
+			log.Info().Msg("Successfully joined cluster")
 			runner.SetStatus(runner_context.StandBy)
+		case runner_context.StandBy:
+			if runner.Source != "" {
+				done := make(chan bool)
+				go func() {
+					for runner.RunnerStatus() == runner_context.StandBy {
+					}
+					done <- true
+				}()
+				for {
+					duration := 5
+					select {
+					case <-time.After(time.Duration(duration) * time.Second):
+						log.Warn().
+							Msgf("No ping received in %d seconds. Assuming source is down. Starting recovery", duration)
+						runner.SetStatus(runner_context.Recovery)
+					case <-runner.PingInterrupt:
+						log.Debug().Msg("PING timer interrupted")
+					case <-done:
+						goto LOOP
+					}
+				}
+			}
+		case runner_context.Recovery:
+			log.Trace().Msg("Recovering")
+
+			runner.LatestImage = image.Recover()
+			runner.Source = ""
+
+			runner.Run()
 		}
 	}
 }
