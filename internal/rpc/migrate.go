@@ -23,7 +23,7 @@ func NewMigrate(containerId, imagePath, bundlePath string) *Migrate {
 	}
 }
 
-func (migrate Migrate) Execute(ctx *RunnerContext) {
+func (migrate Migrate) Execute(ctx *RunnerContext, remoteAddr string) {
 	img := image.Restore(migrate.ImagePath)
 	ctx.ContainerId = migrate.ContainerId
 	ctx.BundlePath = migrate.BundlePath

@@ -11,6 +11,8 @@ import (
 	"github.com/pkg/sftp"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/ssh"
+
+	"github.com/Xarepo/msc-container-migration/internal/remote_target"
 )
 
 func isSymlink(fileName string) bool {
@@ -22,17 +24,15 @@ func isSymlink(fileName string) bool {
 	return fileInfo.Mode()&os.ModeSymlink != 0
 }
 
-func CopyToRemote(dumpName string) {
+func CopyToRemote(dumpName string, target *remote_target.RemoteTarget) {
 	user := os.Getenv("SCP_USER")
 	password := os.Getenv("SCP_PASSWORD")
-	remotePath := os.Getenv("SCP_REMOTE_PATH")
-	target := os.Getenv("MIGRATION_TARGET")
-	log.Trace().
+	log.Debug().
 		Str("User", user).
 		Str("Password", password).
-		Str("RemotePath", remotePath).
+		Str("RemotePath", target.DumpPath()).
 		Str("Dump Name", dumpName).
-		Str("Target", target).
+		Str("Target", target.Host()).
 		Msg("Copying to remote")
 
 	clientConfig := &ssh.ClientConfig{
@@ -49,7 +49,7 @@ func CopyToRemote(dumpName string) {
 		},
 	}
 
-	sshClient, err := ssh.Dial("tcp", target, clientConfig)
+	sshClient, err := ssh.Dial("tcp", target.FileTransferAddr(), clientConfig)
 	if err != nil {
 		log.Error().Str("Error", err.Error()).Msg("Failed to dial ssh")
 	}
@@ -61,7 +61,7 @@ func CopyToRemote(dumpName string) {
 	}
 	defer sftpClient.Close()
 
-	destDir := fmt.Sprintf("%s/%s", remotePath, filepath.Base(dumpName))
+	destDir := fmt.Sprintf("%s/%s", target.DumpPath(), filepath.Base(dumpName))
 	log.Trace().Str("DestDir", destDir).Msg("Creating dump directory on remote")
 	err = sftpClient.MkdirAll(destDir)
 	if err != nil {

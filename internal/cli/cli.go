@@ -32,6 +32,11 @@ func Parse() CliCommand {
 
 	// Listen command
 	listenCmd := flag.NewFlagSet("listen", flag.ExitOnError)
+	listenRemote := listenCmd.String(
+		"remote",
+		"",
+		"the address of the remote source to listen to, in the form <host>:<port>",
+	)
 
 	if len(os.Args) < 2 {
 		flag.PrintDefaults()
@@ -76,7 +81,15 @@ func Parse() CliCommand {
 	}
 
 	if listenCmd.Parsed() {
-		return cli_commands.Listen{RPCListener: udp_listener.UDPListener{}}
+		if *listenRemote == "" {
+			log.Error().Msg("Missing value")
+			listenCmd.PrintDefaults()
+			os.Exit(1)
+		}
+		return cli_commands.Listen{
+			RPCListener: udp_listener.UDPListener{},
+			Remote:      *listenRemote,
+		}
 	}
 
 	return nil

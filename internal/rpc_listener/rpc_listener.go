@@ -1,5 +1,5 @@
 package rpc_listener
 
 type RPCListener interface {
-	Listen(func(buf []byte))
+	Listen(port int, callback func(buf []byte, remoteAddr string))
 }

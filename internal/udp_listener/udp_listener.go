@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strconv"
 
 	"github.com/rs/zerolog/log"
 )
@@ -12,27 +11,16 @@ import (
 type UDPListener struct {
 }
 
-func (udp_listener UDPListener) Listen(callback func(buf []byte)) {
+func (udp_listener UDPListener) Listen(port int, callback func(buf []byte, remoteAddr string)) {
 	rpcIP := os.Getenv("RPC_IP")
 	if rpcIP == "" {
 		log.Warn().Msg("Environment variable RPC_IP not set, defaulting to localhost.")
 		rpcIP = "localhost"
 	}
-	var rpcPort int
-	var err error
-	if os.Getenv("RPC_PORT") == "" {
-		log.Warn().Msg("Environment variable RPC_PORT not set, defaulting to 1234.")
-		rpcPort = 1234
-	} else {
-		rpcPort, err = strconv.Atoi(os.Getenv("RPC_PORT"))
-		if err != nil {
-			log.Panic().Str("Error", err.Error()).Msg("Failed to parse RPC port")
-		}
-	}
 
 	p := make([]byte, 1024)
 	addr := net.UDPAddr{
-		Port: rpcPort,
+		Port: port,
 		IP:   net.ParseIP(rpcIP),
 	}
 	conn, err := net.ListenUDP("udp", &addr)
@@ -50,6 +38,6 @@ func (udp_listener UDPListener) Listen(callback func(buf []byte)) {
 			log.Error().Str("Error", err.Error()).Msg("Failed to read from UDP")
 			continue
 		}
-		callback(buf)
+		callback(buf, remoteaddr.String())
 	}
 }

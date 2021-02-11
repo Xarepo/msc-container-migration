@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -44,11 +45,11 @@ func (runner *Runner) Start() {
 			log.Error().Msg("Failed to parse IPC")
 		}
 	})
-	go runner.RPCListener.Listen(func(buf []byte) {
+	go runner.RPCListener.Listen(runner.RPCPort, func(buf []byte, remoteAddr string) {
 		log.Debug().Str("RPC", string(buf)).Msg("Received RPC")
 		rpc := rpc.ParseRPC(string(buf))
 		if rpc != nil {
-			rpc.Execute(&runner.RunnerContext)
+			rpc.Execute(&runner.RunnerContext, remoteAddr)
 		} else {
 			log.Error().Msg("Failed to parse RPC")
 		}
@@ -118,7 +119,6 @@ func (runner *Runner) runContainer(imagePath string) {
 
 func (runner *Runner) Loop() {
 	dumpFreq := 3
-	copying := false
 	for {
 		switch runner.RunnerStatus() {
 		case runner_context.Running:
@@ -130,10 +130,11 @@ func (runner *Runner) Loop() {
 					parentPath := ""
 					if runner.LatestImage != nil {
 						nextImg = runner.LatestImage.NextImage(dumpFreq)
-						// Parentpath is relative to the image path so only the directory
-						// name (not the full path) should be used
+						// Parentpath is relative to the parent directory of the image path
+						// so only the directory name (not the full path) should be used
 						parentPath = runner.LatestImage.Base()
 					}
+
 					if nextImg.PreDump() {
 						runc.PreDump(
 							runner.ContainerId,
@@ -148,9 +149,11 @@ func (runner *Runner) Loop() {
 							true,
 						)
 					}
-					if !copying {
-						sftp.CopyToRemote(nextImg.Path())
+
+					for _, target := range runner.Targets {
+						sftp.CopyToRemote(nextImg.Path(), &target)
 					}
+
 					runner.LatestImage = nextImg
 				})
 			case <-runner.TimerInterrupt:
@@ -168,7 +171,7 @@ func (runner *Runner) Loop() {
 				nextImg.Path(),
 				runner.LatestImage.Base(),
 			)
-			sftp.CopyToRemote(nextImg.Path())
+			sftp.CopyToRemote(nextImg.Path(), &runner.Targets[0])
 			runner.LatestImage = nextImg
 
 			// Dump
@@ -178,11 +181,11 @@ func (runner *Runner) Loop() {
 				nextImg.Path(),
 				runner.LatestImage.Base(),
 				false)
-			sftp.CopyToRemote(nextImg.Path())
+			sftp.CopyToRemote(nextImg.Path(), &runner.Targets[0])
 			runner.LatestImage = nextImg
 
 			// RPC
-			remote := os.Getenv("RPC_TARGET")
+			remote := runner.Targets[0].RPCAddr()
 			conn, err := net.Dial("udp", remote)
 			defer conn.Close()
 			if err != nil {
@@ -212,6 +215,35 @@ func (runner *Runner) Loop() {
 				Str("Bundle", runner.BundlePath).
 				Msg("Container restored")
 			runner.SetStatus(runner_context.Running)
+		case runner_context.Joining:
+			log.Trace().Str("Remote", runner.Source).Msg("Joining cluster")
+
+			remote := runner.Source
+			conn, err := net.Dial("udp4", remote)
+			if err != nil {
+				log.Error().Str("Error", err.Error()).Msg("Failed to dial UDP")
+				return
+			}
+			defer conn.Close()
+
+			fileTransferPort, err := strconv.Atoi(os.Getenv("FILE_TRANSFER_PORT"))
+			if err != nil {
+				log.Warn().
+					Msg("Failed to parse file transfer port, defaulting to 22")
+			}
+
+			rpc := rpc.NewJoin(
+				runner.RPCPort,
+				fileTransferPort,
+				os.Getenv("DUMP_PATH"),
+			)
+			log.Trace().
+				Str("RPC", rpc.String()).
+				Str("Target", conn.RemoteAddr().String()).
+				Msg("Sending RPC")
+			fmt.Fprintf(conn, rpc.String())
+
+			runner.SetStatus(runner_context.StandBy)
 		}
 	}
 }

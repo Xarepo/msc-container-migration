@@ -1,6 +1,8 @@
 package runner_context
 
 import (
+	"os"
+	"strconv"
 	"sync"
 
 	"github.com/rs/zerolog/log"
@@ -8,6 +10,7 @@ import (
 	. "github.com/Xarepo/msc-container-migration/internal/image"
 	"github.com/Xarepo/msc-container-migration/internal/ipc/utils"
 	. "github.com/Xarepo/msc-container-migration/internal/ipc_listener"
+	"github.com/Xarepo/msc-container-migration/internal/remote_target"
 	. "github.com/Xarepo/msc-container-migration/internal/rpc_listener"
 	"github.com/Xarepo/msc-container-migration/internal/udp_listener"
 	. "github.com/Xarepo/msc-container-migration/internal/usock_listener"
@@ -39,6 +42,11 @@ import (
 // dumped image as part of a migration process.
 // NOTE: The runner should always have this status for EXACTLY one cycle of the
 // runner's loop.
+//
+// Joining:
+// The runner is in the process of joining a cluster.
+// NOTE: The runner should always have this status for EXACTLY one cycle of the
+// runner's loop.
 type RunnerStatus string
 
 const (
@@ -47,6 +55,7 @@ const (
 	Running                = "Running"
 	Migrating              = "Migrating"
 	Restoring              = "Restoring"
+	Joining                = "Joining"
 )
 
 // RunnerContext represents the state of the runner.
@@ -64,24 +73,42 @@ type RunnerContext struct {
 	// disk.
 	LatestImage *Image
 	IPCListener
+	RPCPort int
 	RPCListener
 	status RunnerStatus
 	// This can be used to interrupt the timer that, when it expires, triggers
 	// dumping during running status.
 	TimerInterrupt chan bool
 	lock           sync.Mutex
+	Targets        []remote_target.RemoteTarget
+	Source         string
 }
 
 func New(containerId, bundlePath, imagePath string) RunnerContext {
+	var rpcPort int
+	var err error
+	if os.Getenv("RPC_PORT") == "" {
+		log.Warn().Msg("Environment variable RPC_PORT not set, defaulting to 1234.")
+		rpcPort = 1234
+	} else {
+		rpcPort, err = strconv.Atoi(os.Getenv("RPC_PORT"))
+		if err != nil {
+			log.Panic().Str("Error", err.Error()).Msg("Failed to parse RPC port")
+		}
+	}
+
 	return RunnerContext{
 		ContainerId:     containerId,
 		ContainerStatus: make(chan int),
 		BundlePath:      bundlePath,
 		IPCListener:     USockListener{SockAddr: utils.GetSocketAddr(containerId)},
 		RPCListener:     udp_listener.UDPListener{},
+		RPCPort:         rpcPort,
 		status:          Stopped,
 		TimerInterrupt:  make(chan bool),
 		LatestImage:     nil,
+		Targets:         []remote_target.RemoteTarget{},
+		Source:          "",
 	}
 }
 
@@ -92,6 +119,15 @@ func (ctx *RunnerContext) SetStatus(status RunnerStatus) {
 
 func (ctx *RunnerContext) RunnerStatus() RunnerStatus {
 	return ctx.status
+}
+
+func (ctx *RunnerContext) AddTarget(target remote_target.RemoteTarget) {
+	ctx.Targets = append(ctx.Targets, target)
+	log.Info().
+		Str("RemoteTarget", target.Host()).
+		Int("RPCPort", target.RPCPort()).
+		Int("FileTransferPort", target.FileTransferPort()).
+		Msg("Added target")
 }
 
 func (ctx *RunnerContext) WithLock(f func()) {

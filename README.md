@@ -20,12 +20,18 @@ _required: No, default: 1234_
 
 The port to listen for RPCs on.
 
-#### MIGRATION_TARGET
+#### DUMP_PATH
 
-_required: Yes_
+_required: yes_
 
-The address of the host to which migration should be prepared, i.e. dumps sent.
-Must be in the form of `<ip>:<port>`.
+The path to the folder where dumps will be stored, either by direct dumps or
+from file transfers from other hosts.
+
+#### FILE_TRANSFER_PORT
+
+_required: no, default: 22_
+
+The port from which to receive file transfers.
 
 ## Running
 

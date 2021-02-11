@@ -9,13 +9,16 @@ import (
 )
 
 type RPC interface {
-	Execute(context *RunnerContext)
+	Execute(context *RunnerContext, remoteAddr string)
 	ParseFlags([]string) error
 	String() string
 }
 
 // Available RPCs
-const RPC_MIGRATE = "MIGRATE"
+const (
+	RPC_MIGRATE = "MIGRATE"
+	RPC_JOIN    = "JOIN"
+)
 
 func ParseRPC(message string) RPC {
 	fields := strings.Split(message, " ")
@@ -24,6 +27,8 @@ func ParseRPC(message string) RPC {
 	switch fields[0] {
 	case RPC_MIGRATE:
 		rpc = &Migrate{}
+	case RPC_JOIN:
+		rpc = &Join{}
 	default:
 		log.Error().Str("RPC", fields[0]).Msg("Received unknown RPC")
 		return nil

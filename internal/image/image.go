@@ -26,7 +26,7 @@ func Restore(imagePath string) *Image {
 }
 
 func (img Image) Path() string {
-	return fmt.Sprintf("%s/%s", os.Getenv("SCP_REMOTE_PATH"), img.Base())
+	return fmt.Sprintf("%s/%s", os.Getenv("DUMP_PATH"), img.Base())
 }
 
 func (img Image) Base() string {
