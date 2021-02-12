@@ -2,11 +2,8 @@
 package runner
 
 import (
-	"fmt"
-	"net"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -22,7 +19,6 @@ import (
 
 type Runner struct {
 	RunnerContext
-	lock sync.Mutex
 }
 
 // Create a new runner.
@@ -45,7 +41,7 @@ func (runner *Runner) Start() {
 			log.Error().Msg("Failed to parse IPC")
 		}
 	})
-	go runner.RPCListener.Listen(runner.RPCPort, func(buf []byte, remoteAddr string) {
+	go runner.RPCListener.Listen(runner.RPCPort(), func(buf []byte, remoteAddr string) {
 		log.Debug().Str("RPC", string(buf)).Msg("Received RPC")
 		rpc := rpc.ParseRPC(string(buf))
 		if rpc != nil {
@@ -71,9 +67,16 @@ func (runner *Runner) Run() {
 }
 
 func (runner *Runner) restoreContainer() {
-	status, err := runc.Restore(runner.ContainerId, runner.LatestImage.Path(), runner.BundlePath)
+	status, err := runc.Restore(
+		runner.ContainerId,
+		runner.LatestImage.Path(),
+		runner.BundlePath,
+	)
 	if err != nil {
-		log.Error().Str("Error", err.Error()).Int("Status", status).Msg("Error running container")
+		log.Error().
+			Str("Error", err.Error()).
+			Int("Status", status).
+			Msg("Error running container")
 	} else {
 		log.Info().Int("Status", status).Msg("Container exited")
 	}
@@ -83,8 +86,8 @@ func (runner *Runner) restoreContainer() {
 // Wait for the runner to finish running.
 func (runner *Runner) WaitFor() int {
 	status := <-runner.ContainerStatus
-	for runner.RunnerStatus() == runner_context.Running ||
-		runner.RunnerStatus() == runner_context.Migrating {
+	for runner.Status() == runner_context.Running ||
+		runner.Status() == runner_context.Migrating {
 	}
 	return status
 }
@@ -109,7 +112,10 @@ func (runner *Runner) runContainer(imagePath string) {
 		if status == 137 {
 			log.Warn().Msg("Container exited with status 137 (SIGKILL), assuming it was checkpointed...")
 		} else {
-			log.Error().Str("Error", err.Error()).Int("Status", status).Msg("Error running container")
+			log.Error().
+				Str("Error", err.Error()).
+				Int("Status", status).
+				Msg("Error running container")
 		}
 	} else {
 		log.Info().Str("Status", string(status)).Msg("Container exited")
@@ -118,194 +124,207 @@ func (runner *Runner) runContainer(imagePath string) {
 }
 
 func (runner *Runner) Loop() {
-	dumpFreq := 3
-
-LOOP:
 	for {
-		switch runner.RunnerStatus() {
+		switch runner.Status() {
 		case runner_context.Running:
-			dumpTick := time.NewTicker(2 * time.Second)
-			pingTick := time.NewTicker(1 * time.Second)
-			done := make(chan bool)
-			go func() {
-				for runner.RunnerStatus() == runner_context.Running {
-				}
-				done <- true
-			}()
-			for {
-				select {
-				case <-dumpTick.C:
-					// Lock dumping stage as to avoid conflicted states
-					runner.WithLock(func() {
-						nextImg := image.FirstImage()
-						parentPath := ""
-						if runner.LatestImage != nil {
-							nextImg = runner.LatestImage.NextImage(dumpFreq)
-							// Parentpath is relative to the parent directory of the image path
-							// so only the directory name (not the full path) should be used
-							parentPath = runner.LatestImage.Base()
-						}
-
-						if nextImg.PreDump() {
-							runc.PreDump(
-								runner.ContainerId,
-								nextImg.Path(),
-								parentPath,
-							)
-						} else {
-							runc.Dump(
-								runner.ContainerId,
-								nextImg.Path(),
-								parentPath,
-								true,
-							)
-						}
-
-						for _, target := range runner.Targets {
-							sftp.CopyToRemote(nextImg.Path(), &target)
-						}
-
-						runner.LatestImage = nextImg
-					})
-				case <-pingTick.C:
-					for _, target := range runner.Targets {
-						log.Trace().Msg("Pinging remote")
-
-						conn, err := net.Dial("udp4", target.RPCAddr())
-						if err != nil {
-							log.Error().Str("Error", err.Error()).Msg("Failed to dial UDP")
-							return
-						}
-						defer conn.Close()
-
-						rpc := rpc.Ping{}
-						log.Trace().
-							Str("RPC", rpc.String()).
-							Str("Target", conn.RemoteAddr().String()).
-							Msg("Sending RPC")
-						fmt.Fprintf(conn, rpc.String())
-					}
-				case <-done:
-					log.Trace().Msg("DONE RUNNING")
-					goto LOOP
-				}
-			}
+			runner.loopRunning()
 		case runner_context.Migrating:
-			log.Debug().
-				Str("ContainerId", runner.ContainerId).
-				Msg("Migrating container")
-
-			// Pre-dump
-			nextImg := runner.LatestImage.NextPreDumpImage()
-			runc.PreDump(
-				runner.ContainerId,
-				nextImg.Path(),
-				runner.LatestImage.Base(),
-			)
-			sftp.CopyToRemote(nextImg.Path(), &runner.Targets[0])
-			runner.LatestImage = nextImg
-
-			// Dump
-			nextImg = nextImg.NextDumpImage()
-			runc.Dump(
-				runner.ContainerId,
-				nextImg.Path(),
-				runner.LatestImage.Base(),
-				false)
-			sftp.CopyToRemote(nextImg.Path(), &runner.Targets[0])
-			runner.LatestImage = nextImg
-
-			// RPC
-			remote := runner.Targets[0].RPCAddr()
-			conn, err := net.Dial("udp", remote)
-			defer conn.Close()
-			if err != nil {
-				log.Error().Str("Error", err.Error()).Msg("Failed to dial UDP")
-				return
-			}
-			rpc := rpc.NewMigrate(runner.ContainerId, runner.LatestImage.Base(), runner.BundlePath)
-			log.Trace().Str("RPC", rpc.String()).Str("Target", conn.RemoteAddr().String()).Msg("Sending RPC")
-			fmt.Fprintf(conn, rpc.String())
-
-			log.Info().
-				Str("ContainerId", runner.ContainerId).
-				Str("Remote", remote).
-				Str("Image", nextImg.Path()).
-				Msg("Container migrated")
-
-			runner.SetStatus(runner_context.Stopped)
+			runner.loopMigrating()
 		case runner_context.Restoring:
-			log.Trace().Msg("Restoring container")
-			go runc.Restore(
-				runner.ContainerId,
-				runner.LatestImage.Path(),
-				runner.BundlePath)
-			log.Info().
-				Str("ContainerId", runner.ContainerId).
-				Str("Image", runner.LatestImage.Path()).
-				Str("Bundle", runner.BundlePath).
-				Msg("Container restored")
-			runner.SetStatus(runner_context.Running)
+			runner.loopRestoring()
 		case runner_context.Joining:
-			log.Trace().Str("Remote", runner.Source).Msg("Joining cluster")
-
-			remote := runner.Source
-			conn, err := net.Dial("udp4", remote)
-			if err != nil {
-				log.Error().Str("Error", err.Error()).Msg("Failed to dial UDP")
-				return
-			}
-			defer conn.Close()
-
-			fileTransferPort, err := strconv.Atoi(os.Getenv("FILE_TRANSFER_PORT"))
-			if err != nil {
-				log.Warn().
-					Msg("Failed to parse file transfer port, defaulting to 22")
-			}
-
-			rpc := rpc.NewJoin(
-				runner.RPCPort,
-				fileTransferPort,
-				os.Getenv("DUMP_PATH"),
-			)
-			log.Trace().
-				Str("RPC", rpc.String()).
-				Str("Target", conn.RemoteAddr().String()).
-				Msg("Sending RPC")
-			fmt.Fprintf(conn, rpc.String())
-
-			<-runner.AckWait
-			log.Info().Msg("Successfully joined cluster")
-			runner.SetStatus(runner_context.StandBy)
+			runner.loopJoining()
 		case runner_context.StandBy:
-			if runner.Source != "" {
-				done := make(chan bool)
-				go func() {
-					for runner.RunnerStatus() == runner_context.StandBy {
-					}
-					done <- true
-				}()
-				for {
-					duration := 5
-					select {
-					case <-time.After(time.Duration(duration) * time.Second):
-						log.Warn().
-							Msgf("No ping received in %d seconds. Assuming source is down. Starting recovery", duration)
-						runner.SetStatus(runner_context.Recovery)
-					case <-runner.PingInterrupt:
-						log.Debug().Msg("PING timer interrupted")
-					case <-done:
-						goto LOOP
-					}
-				}
-			}
+			runner.loopStandby()
 		case runner_context.Recovery:
-			log.Trace().Msg("Recovering")
-
-			runner.LatestImage = image.Recover()
-			runner.Source = ""
-
-			runner.Run()
+			runner.loopRecovery()
 		}
 	}
+}
+
+func (runner *Runner) loopRunning() {
+	dumpFreq := 3
+	dumpTick := time.NewTicker(2 * time.Second)
+	pingTick := time.NewTicker(1 * time.Second)
+	done := make(chan bool)
+	go func() {
+		for runner.Status() == runner_context.Running {
+		}
+		done <- true
+	}()
+	for {
+		select {
+		case <-dumpTick.C:
+			// Lock dumping stage as to avoid conflicted states
+			runner.WithLock(func() {
+				nextImg := image.FirstImage()
+				parentPath := ""
+				if runner.LatestImage != nil {
+					nextImg = runner.LatestImage.NextImage(dumpFreq)
+					// Parentpath is relative to the parent directory of the image path
+					// so only the directory name (not the full path) should be used
+					parentPath = runner.LatestImage.Base()
+				}
+
+				if nextImg.PreDump() {
+					runc.PreDump(
+						runner.ContainerId,
+						nextImg.Path(),
+						parentPath,
+					)
+				} else {
+					runc.Dump(
+						runner.ContainerId,
+						nextImg.Path(),
+						parentPath,
+						true,
+					)
+				}
+
+				for _, target := range runner.Targets {
+					sftp.CopyToRemote(nextImg.Path(), &target)
+				}
+
+				runner.LatestImage = nextImg
+			})
+		case <-pingTick.C:
+			for _, target := range runner.Targets {
+				log.Trace().Msg("Pinging remote")
+
+				ping := rpc.Ping{}
+				rpc.Send(ping, target.RPCAddr())
+			}
+		case <-done:
+			log.Trace().Msg("DONE RUNNING")
+			return
+		}
+	}
+}
+
+func (runner *Runner) loopMigrating() {
+	log.Debug().
+		Str("ContainerId", runner.ContainerId).
+		Msg("Migrating container")
+
+	// Pre-dump
+	nextImg := runner.LatestImage.NextPreDumpImage()
+	runc.PreDump(
+		runner.ContainerId,
+		nextImg.Path(),
+		runner.LatestImage.Base(),
+	)
+	sftp.CopyToRemote(nextImg.Path(), &runner.Targets[0])
+	runner.LatestImage = nextImg
+
+	// Dump
+	nextImg = nextImg.NextDumpImage()
+	runc.Dump(
+		runner.ContainerId,
+		nextImg.Path(),
+		runner.LatestImage.Base(),
+		false)
+	sftp.CopyToRemote(nextImg.Path(), &runner.Targets[0])
+	runner.LatestImage = nextImg
+
+	migrate := rpc.NewMigrate(
+		runner.ContainerId,
+		runner.LatestImage.Base(),
+		runner.BundlePath,
+	)
+	err := rpc.Send(migrate, runner.Targets[0].RPCAddr())
+	if err != nil {
+		log.Error().
+			Str("RPC", migrate.String()).
+			Str("Error", err.Error()).
+			Msg("Failed to send RPC")
+	} else {
+		log.Info().
+			Str("ContainerId", runner.ContainerId).
+			Str("TargetHost", runner.Targets[0].Host()).
+			Str("Image", nextImg.Path()).
+			Msg("Container migrated")
+	}
+
+	runner.SetStatus(runner_context.Stopped)
+}
+
+func (runner *Runner) loopRestoring() {
+	log.Trace().Msg("Restoring container")
+	go runc.Restore(
+		runner.ContainerId,
+		runner.LatestImage.Path(),
+		runner.BundlePath)
+	log.Info().
+		Str("ContainerId", runner.ContainerId).
+		Str("Image", runner.LatestImage.Path()).
+		Str("Bundle", runner.BundlePath).
+		Msg("Container restored")
+	runner.SetStatus(runner_context.Running)
+}
+
+func (runner *Runner) loopJoining() {
+	log.Trace().Str("Remote", runner.Source).Msg("Joining cluster")
+
+	fileTransferPort, err := strconv.Atoi(os.Getenv("FILE_TRANSFER_PORT"))
+	if err != nil {
+		log.Warn().
+			Msg("Failed to parse file transfer port, defaulting to 22")
+		fileTransferPort = 22
+	}
+
+	join := rpc.NewJoin(
+		runner.RPCPort(),
+		fileTransferPort,
+		os.Getenv("DUMP_PATH"),
+	)
+
+	err = rpc.Send(join, runner.Source)
+	if err != nil {
+		log.Error().
+			Str("RPC", join.String()).
+			Str("Error", err.Error()).
+			Msg("Failed to send RPC")
+		runner.SetStatus(runner_context.Stopped)
+		return
+	}
+
+	<-runner.AckWait
+	log.Info().Msg("Successfully joined cluster")
+	runner.SetStatus(runner_context.StandBy)
+}
+
+func (runner *Runner) loopStandby() {
+	if runner.Source != "" {
+		done := make(chan bool)
+		go func() {
+			for runner.Status() == runner_context.StandBy {
+			}
+			done <- true
+		}()
+		for {
+			duration := 5 * time.Second
+			select {
+			case <-time.After(duration):
+				log.Warn().
+					Msgf(
+						"No ping received in %s. Assuming source is down. Starting recovery",
+						duration.String(),
+					)
+				runner.SetStatus(runner_context.Recovery)
+			case <-runner.PingInterrupt:
+			case <-done:
+				return
+			}
+		}
+	}
+}
+
+func (runner *Runner) loopRecovery() {
+	log.Trace().Msg("Recovering")
+
+	runner.LatestImage = image.Recover()
+	runner.Source = ""
+
+	log.Info().Str("Dump", runner.LatestImage.Path()).Msg("Recovering from dump")
+	runner.Run()
 }

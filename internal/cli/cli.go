@@ -8,7 +8,6 @@ import (
 
 	. "github.com/Xarepo/msc-container-migration/internal/cli_command"
 	"github.com/Xarepo/msc-container-migration/internal/cli_commands"
-	"github.com/Xarepo/msc-container-migration/internal/udp_listener"
 )
 
 func Parse() CliCommand {
@@ -30,12 +29,12 @@ func Parse() CliCommand {
 		"",
 		"the id of the container")
 
-	// Listen command
-	listenCmd := flag.NewFlagSet("listen", flag.ExitOnError)
-	listenRemote := listenCmd.String(
+	// Join command
+	joinCmd := flag.NewFlagSet("join", flag.ExitOnError)
+	joinRemote := joinCmd.String(
 		"remote",
 		"",
-		"the address of the remote source to listen to, in the form <host>:<port>",
+		"the address of the remote source to join, in the form <host>:<rpcPort>",
 	)
 
 	if len(os.Args) < 2 {
@@ -48,8 +47,8 @@ func Parse() CliCommand {
 		runCmd.Parse(os.Args[2:])
 	case "migrate":
 		migrateCmd.Parse(os.Args[2:])
-	case "listen":
-		listenCmd.Parse(os.Args[2:])
+	case "join":
+		joinCmd.Parse(os.Args[2:])
 	default:
 		flag.PrintDefaults()
 		os.Exit(1)
@@ -75,21 +74,16 @@ func Parse() CliCommand {
 			os.Exit(1)
 		}
 
-		return cli_commands.Migrate{
-			ContainerId: migrateContainerId,
-		}
+		return cli_commands.Migrate{ContainerId: migrateContainerId}
 	}
 
-	if listenCmd.Parsed() {
-		if *listenRemote == "" {
+	if joinCmd.Parsed() {
+		if *joinRemote == "" {
 			log.Error().Msg("Missing value")
-			listenCmd.PrintDefaults()
+			joinCmd.PrintDefaults()
 			os.Exit(1)
 		}
-		return cli_commands.Listen{
-			RPCListener: udp_listener.UDPListener{},
-			Remote:      *listenRemote,
-		}
+		return cli_commands.Join{Remote: *joinRemote}
 	}
 
 	return nil

@@ -8,7 +8,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/Xarepo/msc-container-migration/internal/remote_target"
-	"github.com/Xarepo/msc-container-migration/internal/runner/runner_context"
+	. "github.com/Xarepo/msc-container-migration/internal/runner/runner_context"
 )
 
 type Join struct {
@@ -25,7 +25,7 @@ func NewJoin(rpcPort, fileTransferPort int, dumpPath string) *Join {
 	}
 }
 
-func (j *Join) Execute(ctx *runner_context.RunnerContext, remoteAddr string) {
+func (j *Join) Execute(ctx *RunnerContext, remoteAddr string) {
 	host, _, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
 		log.Error().Msg("Failed to parse address")
@@ -38,14 +38,15 @@ func (j *Join) Execute(ctx *runner_context.RunnerContext, remoteAddr string) {
 
 	target := remote_target.New(host, j.rpcPort, j.dumpPath, j.fileTransferPort)
 
-	conn, err := net.Dial("udp4", target.RPCAddr())
+	joinAck := NewJoinAck(ctx.ContainerId)
+	err = Send(joinAck, target.RPCAddr())
 	if err != nil {
-		log.Error().Str("Error", err.Error()).Msg("Failed to dial UDP")
+		log.Error().
+			Str("RPC", joinAck.String()).
+			Str("Error", err.Error()).
+			Msg("Failed to send RPC")
 		return
 	}
-	defer conn.Close()
-	rpc := NewJoinAck(ctx.ContainerId)
-	fmt.Fprintf(conn, rpc.String())
 
 	ctx.AddTarget(target)
 }

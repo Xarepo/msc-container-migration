@@ -47,6 +47,12 @@ import (
 // The runner is in the process of joining a cluster.
 // NOTE: The runner should always have this status for EXACTLY one cycle of the
 // runner's loop.
+//
+// Recovery:
+// The runner has lost connection to the source, i.e. pings have timed out, and
+// is in the process of recovery from the latest possible dump.
+// NOTE: The runner should always have this status for EXACTLY one cycle of the
+// runner's loop.
 type RunnerStatus string
 
 const (
@@ -74,7 +80,7 @@ type RunnerContext struct {
 	// disk.
 	LatestImage *Image
 	IPCListener
-	RPCPort int
+	rpcPort int
 	RPCListener
 	status        RunnerStatus
 	lock          sync.Mutex
@@ -105,7 +111,7 @@ func New(containerId, bundlePath, imagePath string) RunnerContext {
 		BundlePath:      bundlePath,
 		IPCListener:     USockListener{SockAddr: utils.GetSocketAddr(containerId)},
 		RPCListener:     udp_listener.UDPListener{},
-		RPCPort:         rpcPort,
+		rpcPort:         rpcPort,
 		status:          Stopped,
 		LatestImage:     nil,
 		Targets:         []remote_target.RemoteTarget{},
@@ -120,7 +126,7 @@ func (ctx *RunnerContext) SetStatus(status RunnerStatus) {
 	ctx.status = status
 }
 
-func (ctx *RunnerContext) RunnerStatus() RunnerStatus {
+func (ctx *RunnerContext) Status() RunnerStatus {
 	return ctx.status
 }
 
@@ -131,6 +137,10 @@ func (ctx *RunnerContext) AddTarget(target remote_target.RemoteTarget) {
 		Int("RPCPort", target.RPCPort()).
 		Int("FileTransferPort", target.FileTransferPort()).
 		Msg("Added target")
+}
+
+func (ctx *RunnerContext) RPCPort() int {
+	return ctx.rpcPort
 }
 
 func (ctx *RunnerContext) WithLock(f func()) {

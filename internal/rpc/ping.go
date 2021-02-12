@@ -4,11 +4,10 @@ import (
 	. "github.com/Xarepo/msc-container-migration/internal/runner/runner_context"
 )
 
-type Ping struct {
-}
+type Ping struct{}
 
-func (ping Ping) Execute(context *RunnerContext, remoteAddr string) {
-	context.PingInterrupt <- true
+func (ping Ping) Execute(ctx *RunnerContext, remoteAddr string) {
+	ctx.PingInterrupt <- true
 }
 
 func (ping Ping) ParseFlags([]string) error {

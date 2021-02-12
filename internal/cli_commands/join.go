@@ -1,17 +1,15 @@
 package cli_commands
 
 import (
-	"github.com/Xarepo/msc-container-migration/internal/rpc_listener"
 	"github.com/Xarepo/msc-container-migration/internal/runner"
 	"github.com/Xarepo/msc-container-migration/internal/runner/runner_context"
 )
 
-type Listen struct {
-	RPCListener rpc_listener.RPCListener
-	Remote      string
+type Join struct {
+	Remote string
 }
 
-func (cmd Listen) Execute() error {
+func (cmd Join) Execute() error {
 	// Prepare new runner by creating it with empty values
 	r := runner.New("", ".", "")
 	r.Source = cmd.Remote

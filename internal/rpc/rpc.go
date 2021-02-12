@@ -1,6 +1,8 @@
 package rpc
 
 import (
+	"fmt"
+	"net"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -9,8 +11,9 @@ import (
 )
 
 type RPC interface {
-	Execute(context *RunnerContext, remoteAddr string)
+	Execute(ctx *RunnerContext, remoteAddr string)
 	ParseFlags([]string) error
+	// String returns the serialized verisoned of the struct
 	String() string
 }
 
@@ -44,4 +47,22 @@ func ParseRPC(message string) RPC {
 		return nil
 	}
 	return rpc
+}
+
+func Send(rpc RPC, remoteAddr string) error {
+	conn, err := net.Dial("udp4", remoteAddr)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	log.Trace().
+		Str("RPC", rpc.String()).
+		Str("Target", conn.RemoteAddr().String()).
+		Msg("Sending RPC")
+	_, err = fmt.Fprintf(conn, rpc.String())
+	if err != nil {
+		return err
+	}
+	return nil
 }
