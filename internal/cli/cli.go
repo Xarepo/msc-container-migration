@@ -55,14 +55,19 @@ func Parse() CliCommand {
 	}
 
 	if runCmd.Parsed() {
-		if *runContainerId == "" || *runBundlePath == "" {
+		if *runContainerId == "" {
 			log.Error().Msg("Missing value")
 			runCmd.PrintDefaults()
 			os.Exit(1)
 		}
 
+		bundlePath := "."
+		if runBundlePath != nil {
+			bundlePath = *runBundlePath
+		}
+
 		return cli_commands.Run{
-			BundlePath:  runBundlePath,
+			BundlePath:  &bundlePath,
 			ContainerId: runContainerId,
 		}
 	}
