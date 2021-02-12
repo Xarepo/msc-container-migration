@@ -7,30 +7,30 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type USockListener struct {
-	SockAddr string
-}
+type USockListener struct{}
+
+const SOCK_ADDR = "/tmp/msc.sock"
 
 func (usock USockListener) Listen(callback func(buf []byte)) {
-	log.Trace().Str("SocketAddress", usock.SockAddr).Msg("Clearing socket")
-	if err := os.RemoveAll(usock.SockAddr); err != nil {
-		log.Error().Str("SocketAddress", usock.SockAddr).Msg("Failed to clear socket")
+	log.Trace().Str("SocketAddress", SOCK_ADDR).Msg("Clearing socket")
+	if err := os.RemoveAll(SOCK_ADDR); err != nil {
+		log.Error().Str("SocketAddress", SOCK_ADDR).Msg("Failed to clear socket")
 	} else {
-		log.Trace().Str("SocketAddress", usock.SockAddr).Msg("Socket cleared")
+		log.Trace().Str("SocketAddress", SOCK_ADDR).Msg("Socket cleared")
 	}
 
-	l, err := net.Listen("unix", usock.SockAddr)
+	l, err := net.Listen("unix", SOCK_ADDR)
 	if err != nil {
 		log.Error().Msgf("Failed to listen: %s", err)
 	}
-	log.Info().Str("Address", usock.SockAddr).Msg("Listening on socket")
+	log.Info().Str("Address", SOCK_ADDR).Msg("Listening on socket")
 	defer l.Close()
 
 	for {
 		c, err := l.Accept()
 		if err == nil {
 			log.Trace().
-				Str("Address", usock.SockAddr).
+				Str("Address", SOCK_ADDR).
 				Msg("Received message from socket")
 			buf := make([]byte, 512)
 			nr, err := c.Read(buf)

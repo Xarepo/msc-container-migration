@@ -8,7 +8,6 @@ import (
 	"github.com/rs/zerolog/log"
 
 	. "github.com/Xarepo/msc-container-migration/internal/image"
-	"github.com/Xarepo/msc-container-migration/internal/ipc/utils"
 	. "github.com/Xarepo/msc-container-migration/internal/ipc_listener"
 	"github.com/Xarepo/msc-container-migration/internal/remote_target"
 	. "github.com/Xarepo/msc-container-migration/internal/rpc_listener"
@@ -109,7 +108,7 @@ func New(containerId, bundlePath, imagePath string) RunnerContext {
 		ContainerId:     containerId,
 		ContainerStatus: make(chan int),
 		BundlePath:      bundlePath,
-		IPCListener:     USockListener{SockAddr: utils.GetSocketAddr(containerId)},
+		IPCListener:     USockListener{},
 		RPCListener:     udp_listener.UDPListener{},
 		rpcPort:         rpcPort,
 		status:          Stopped,

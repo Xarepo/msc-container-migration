@@ -6,12 +6,12 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/Xarepo/msc-container-migration/internal/ipc/utils"
 	"github.com/Xarepo/msc-container-migration/internal/runner/runner_context"
+	"github.com/Xarepo/msc-container-migration/internal/usock_listener"
 )
 
 func sendMessage(msg *[]byte, containerId string) {
-	sockAddr := utils.GetSocketAddr(containerId)
+	sockAddr := usock_listener.SOCK_ADDR
 	c, err := net.Dial("unix", sockAddr)
 	if err != nil {
 		log.Error().Str("Error", err.Error()).Msgf("Failed to connect IPC socket")
