@@ -7,14 +7,14 @@ import (
 )
 
 type Migrate struct {
-	ContainerId *string
+	ContainerId string `kong:"arg,help='The id of the container to migrate'"`
 }
 
 func (cmd Migrate) Execute() error {
 	log.Trace().
-		Str("ContainerId", *cmd.ContainerId).
+		Str("ContainerId", cmd.ContainerId).
 		Msg("Executing migrate command")
-	ipc := ipc.Migrate{ContainerId: *cmd.ContainerId}
+	ipc := ipc.Migrate{ContainerId: cmd.ContainerId}
 	ipc.Send()
 
 	return nil

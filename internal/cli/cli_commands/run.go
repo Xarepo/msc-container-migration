@@ -8,8 +8,8 @@ import (
 )
 
 type Run struct {
-	ContainerId *string
-	BundlePath  *string
+	ContainerId string `kong:"arg,help='The id to assign to the container'"`
+	BundlePath  string `kong:"help='The path to the OCI-bundle to build the container from',type='path',default='.'"`
 }
 
 // Execute the run command.
@@ -19,11 +19,11 @@ type Run struct {
 // The function does not return until the container has exited.
 func (cmd Run) Execute() error {
 	log.Trace().
-		Str("BundlePath", *cmd.BundlePath).
-		Str("ContainerId", *cmd.ContainerId).
+		Str("BundlePath", cmd.BundlePath).
+		Str("ContainerId", cmd.ContainerId).
 		Msg("Executing run command")
 
-	runner := runner.New(*cmd.ContainerId, *cmd.BundlePath, "")
+	runner := runner.New(cmd.ContainerId, cmd.BundlePath, "")
 
 	runner.Start()
 	runner.Run()

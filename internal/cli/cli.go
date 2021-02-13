@@ -1,95 +1,31 @@
 package cli
 
 import (
-	"flag"
-	"os"
+	"github.com/Xarepo/msc-container-migration/internal/cli/cli_commands"
 
-	"github.com/rs/zerolog/log"
-
-	. "github.com/Xarepo/msc-container-migration/internal/cli_command"
-	"github.com/Xarepo/msc-container-migration/internal/cli_commands"
+	"github.com/alecthomas/kong"
 )
 
+var cli struct {
+	Run     cli_commands.Run     `kong:"cmd,help:'Run a container'"`
+	Join    cli_commands.Join    `kong:"cmd,help:'Join a cluster'"`
+	Migrate cli_commands.Migrate `kong:"cmd,help:'Migrate a container'"`
+}
+
+type CliCommand interface {
+	Execute() error
+}
+
 func Parse() CliCommand {
-	// Run command
-	runCmd := flag.NewFlagSet("run", flag.ExitOnError)
-	runContainerId := runCmd.String(
-		"container-id",
-		"",
-		"the id of the container")
-	runBundlePath := runCmd.String(
-		"bundle-path",
-		"",
-		"the path to the oci-bundle")
-
-	// Migrate command
-	migrateCmd := flag.NewFlagSet("migrate", flag.ExitOnError)
-	migrateContainerId := migrateCmd.String(
-		"container-id",
-		"",
-		"the id of the container")
-
-	// Join command
-	joinCmd := flag.NewFlagSet("join", flag.ExitOnError)
-	joinRemote := joinCmd.String(
-		"remote",
-		"",
-		"the address of the remote source to join, in the form <host>:<rpcPort>",
-	)
-
-	if len(os.Args) < 2 {
-		flag.PrintDefaults()
-		os.Exit(1)
-	}
-
-	switch os.Args[1] {
-	case "run":
-		runCmd.Parse(os.Args[2:])
-	case "migrate":
-		migrateCmd.Parse(os.Args[2:])
-	case "join":
-		joinCmd.Parse(os.Args[2:])
+	ctx := kong.Parse(&cli, kong.UsageOnError())
+	switch ctx.Command() {
+	case "run <container-id>":
+		return cli.Run
+	case "join <remote>":
+		return cli.Join
+	case "migrate <container-id>":
+		return cli.Migrate
 	default:
-		flag.PrintDefaults()
-		os.Exit(1)
+		panic(ctx.Command())
 	}
-
-	if runCmd.Parsed() {
-		if *runContainerId == "" {
-			log.Error().Msg("Missing value")
-			runCmd.PrintDefaults()
-			os.Exit(1)
-		}
-
-		bundlePath := "."
-		if runBundlePath != nil {
-			bundlePath = *runBundlePath
-		}
-
-		return cli_commands.Run{
-			BundlePath:  &bundlePath,
-			ContainerId: runContainerId,
-		}
-	}
-
-	if migrateCmd.Parsed() {
-		if *migrateContainerId == "" {
-			log.Error().Msg("Missing value")
-			migrateCmd.PrintDefaults()
-			os.Exit(1)
-		}
-
-		return cli_commands.Migrate{ContainerId: migrateContainerId}
-	}
-
-	if joinCmd.Parsed() {
-		if *joinRemote == "" {
-			log.Error().Msg("Missing value")
-			joinCmd.PrintDefaults()
-			os.Exit(1)
-		}
-		return cli_commands.Join{Remote: *joinRemote}
-	}
-
-	return nil
 }

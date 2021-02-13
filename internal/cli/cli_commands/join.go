@@ -6,7 +6,7 @@ import (
 )
 
 type Join struct {
-	Remote string
+	Remote string `kong:"arg,help='The RPC-address of the remote host to join'"`
 }
 
 func (cmd Join) Execute() error {
