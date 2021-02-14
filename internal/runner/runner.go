@@ -2,23 +2,27 @@
 package runner
 
 import (
+	"net"
+	"net/http"
+	"net/rpc"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/rs/zerolog/log"
 
 	"github.com/Xarepo/msc-container-migration/internal/image"
 	"github.com/Xarepo/msc-container-migration/internal/ipc"
-	"github.com/Xarepo/msc-container-migration/internal/rpc"
+	"github.com/Xarepo/msc-container-migration/internal/remote_target"
 	"github.com/Xarepo/msc-container-migration/internal/runc"
 	"github.com/Xarepo/msc-container-migration/internal/runner/runner_context"
 	. "github.com/Xarepo/msc-container-migration/internal/runner/runner_context"
 	"github.com/Xarepo/msc-container-migration/internal/sftp"
+	"github.com/Xarepo/msc-container-migration/internal/utils"
 )
 
 type Runner struct {
 	RunnerContext
+	RPCHandler
 }
 
 // Create a new runner.
@@ -26,9 +30,11 @@ type Runner struct {
 // @param containerId: The id of the container to create.
 // @param bundlePath: The path to the OCI-bundle used to create the container.
 func New(containerId, bundlePath, imagePath string) *Runner {
-	return &Runner{
+	runner := Runner{
 		RunnerContext: runner_context.New(containerId, bundlePath, imagePath),
 	}
+	runner.RPCHandler = RPCHandler{runner: &runner}
+	return &runner
 }
 
 func (runner *Runner) Start() {
@@ -41,15 +47,16 @@ func (runner *Runner) Start() {
 			log.Error().Msg("Failed to parse IPC")
 		}
 	})
-	go runner.RPCListener.Listen(runner.RPCPort(), func(buf []byte, remoteAddr string) {
-		log.Debug().Str("RPC", string(buf)).Msg("Received RPC")
-		rpc := rpc.ParseRPC(string(buf))
-		if rpc != nil {
-			rpc.Execute(&runner.RunnerContext, remoteAddr)
-		} else {
-			log.Error().Msg("Failed to parse RPC")
-		}
-	})
+
+	// RPC listener
+	rpc.RegisterName("RPC", &runner.RPCHandler)
+	rpc.HandleHTTP()
+	l, e := net.Listen("tcp", ":1234")
+	if e != nil {
+		log.Fatal().Msgf("listen error:%s", e)
+	}
+	go http.Serve(l, nil)
+
 	runner.SetStatus(runner_context.StandBy)
 	log.Debug().Msg("Runner started, standing by")
 	os.MkdirAll("/dumps", os.ModeDir)
@@ -191,8 +198,18 @@ func (runner *Runner) loopRunning() {
 			for _, target := range runner.Targets {
 				log.Trace().Msg("Pinging remote")
 
-				ping := rpc.Ping{}
-				rpc.Send(ping, target.RPCAddr())
+				client, err := rpc.DialHTTP("tcp", target.RPCAddr())
+				if err != nil {
+					log.Fatal().Msgf("dialing:%s", err)
+				}
+
+				var reply struct{}
+				var args struct{}
+				err = client.Call("RPC.Ping", args, &reply)
+				if err != nil {
+					log.Error().Str("Error", err.Error()).Send()
+					// TODO: Handle error
+				}
 			}
 		case <-done:
 			log.Trace().Msg("DONE RUNNING")
@@ -226,23 +243,21 @@ func (runner *Runner) loopMigrating() {
 	sftp.CopyToRemote(nextImg.Path(), &runner.Targets[0])
 	runner.LatestImage = nextImg
 
-	migrate := rpc.NewMigrate(
-		runner.ContainerId,
-		runner.LatestImage.Base(),
-		runner.BundlePath,
-	)
-	err := rpc.Send(migrate, runner.Targets[0].RPCAddr())
+	client, err := rpc.DialHTTP("tcp", runner.Targets[0].RPCAddr())
 	if err != nil {
-		log.Error().
-			Str("RPC", migrate.String()).
-			Str("Error", err.Error()).
-			Msg("Failed to send RPC")
-	} else {
-		log.Info().
-			Str("ContainerId", runner.ContainerId).
-			Str("TargetHost", runner.Targets[0].Host()).
-			Str("Image", nextImg.Path()).
-			Msg("Container migrated")
+		log.Fatal().Msgf("dialing:%s", err)
+	}
+
+	var reply struct{}
+	args := MigrateArgs{
+		ImagePath:   runner.LatestImage.Base(),
+		ContainerId: runner.ContainerId,
+		BundlePath:  runner.BundlePath,
+	}
+	err = client.Call("RPC.Migrate", args, &reply)
+	if err != nil {
+		log.Error().Str("Error", err.Error()).Send()
+		// TODO: Handle error
 	}
 
 	runner.SetStatus(runner_context.Stopped)
@@ -265,31 +280,22 @@ func (runner *Runner) loopRestoring() {
 func (runner *Runner) loopJoining() {
 	log.Trace().Str("Remote", runner.Source).Msg("Joining cluster")
 
-	fileTransferPort, err := strconv.Atoi(os.Getenv("FILE_TRANSFER_PORT"))
+	client, err := rpc.DialHTTP("tcp", runner.Source)
 	if err != nil {
-		log.Warn().
-			Msg("Failed to parse file transfer port, defaulting to 22")
-		fileTransferPort = 22
+		log.Fatal().Msgf("dialing:%s", err)
 	}
 
-	join := rpc.NewJoin(
-		runner.RPCPort(),
-		fileTransferPort,
-		os.Getenv("DUMP_PATH"),
-	)
-
-	err = rpc.Send(join, runner.Source)
+	var reply string
+	args := runner.ToTarget()
+	err = client.Call("RPC.Join", args, &reply)
 	if err != nil {
-		log.Error().
-			Str("RPC", join.String()).
-			Str("Error", err.Error()).
-			Msg("Failed to send RPC")
-		runner.SetStatus(runner_context.Stopped)
-		return
+		log.Error().Str("Error", err.Error()).Send()
+		// TODO: Handle error
 	}
 
-	<-runner.AckWait
-	log.Info().Msg("Successfully joined cluster")
+	runner.ContainerId = reply
+
+	log.Info().Str("ContainerId", reply).Msg("Successfully joined cluster")
 	runner.SetStatus(runner_context.StandBy)
 }
 
@@ -327,4 +333,13 @@ func (runner *Runner) loopRecovery() {
 
 	log.Info().Str("Dump", runner.LatestImage.Path()).Msg("Recovering from dump")
 	runner.Run()
+}
+
+func (runner *Runner) ToTarget() remote_target.RemoteTarget {
+	return remote_target.New(
+		utils.GetLocalIP(),
+		runner.RPCPort(),
+		os.Getenv("DUMP_PATH"),
+		22, // TODO: Don't hard code port
+	)
 }

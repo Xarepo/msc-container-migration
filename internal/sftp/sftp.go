@@ -30,9 +30,9 @@ func CopyToRemote(dumpName string, target *remote_target.RemoteTarget) {
 	log.Debug().
 		Str("User", user).
 		Str("Password", password).
-		Str("RemotePath", target.DumpPath()).
+		Str("RemotePath", target.DumpPath).
 		Str("Dump Name", dumpName).
-		Str("Target", target.Host()).
+		Str("Target", target.Host).
 		Msg("Copying to remote")
 
 	clientConfig := &ssh.ClientConfig{
@@ -61,7 +61,7 @@ func CopyToRemote(dumpName string, target *remote_target.RemoteTarget) {
 	}
 	defer sftpClient.Close()
 
-	destDir := fmt.Sprintf("%s/%s", target.DumpPath(), filepath.Base(dumpName))
+	destDir := fmt.Sprintf("%s/%s", target.DumpPath, filepath.Base(dumpName))
 	log.Trace().Str("DestDir", destDir).Msg("Creating dump directory on remote")
 	err = sftpClient.MkdirAll(destDir)
 	if err != nil {

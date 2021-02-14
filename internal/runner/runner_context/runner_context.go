@@ -10,8 +10,6 @@ import (
 	. "github.com/Xarepo/msc-container-migration/internal/image"
 	. "github.com/Xarepo/msc-container-migration/internal/ipc_listener"
 	"github.com/Xarepo/msc-container-migration/internal/remote_target"
-	. "github.com/Xarepo/msc-container-migration/internal/rpc_listener"
-	"github.com/Xarepo/msc-container-migration/internal/udp_listener"
 	. "github.com/Xarepo/msc-container-migration/internal/usock_listener"
 )
 
@@ -79,16 +77,12 @@ type RunnerContext struct {
 	// disk.
 	LatestImage *Image
 	IPCListener
-	rpcPort int
-	RPCListener
+	rpcPort       int
 	status        RunnerStatus
 	lock          sync.Mutex
 	Targets       []remote_target.RemoteTarget
 	Source        string
 	PingInterrupt chan bool
-	// This channel can be read from when a RPC needs to wait for a corresponding
-	// ACK message to be received.
-	AckWait chan bool
 }
 
 func New(containerId, bundlePath, imagePath string) RunnerContext {
@@ -109,14 +103,12 @@ func New(containerId, bundlePath, imagePath string) RunnerContext {
 		ContainerStatus: make(chan int),
 		BundlePath:      bundlePath,
 		IPCListener:     USockListener{},
-		RPCListener:     udp_listener.UDPListener{},
 		rpcPort:         rpcPort,
 		status:          Stopped,
 		LatestImage:     nil,
 		Targets:         []remote_target.RemoteTarget{},
 		Source:          "",
 		PingInterrupt:   make(chan bool),
-		AckWait:         make(chan bool),
 	}
 }
 
@@ -132,9 +124,9 @@ func (ctx *RunnerContext) Status() RunnerStatus {
 func (ctx *RunnerContext) AddTarget(target remote_target.RemoteTarget) {
 	ctx.Targets = append(ctx.Targets, target)
 	log.Info().
-		Str("RemoteTarget", target.Host()).
-		Int("RPCPort", target.RPCPort()).
-		Int("FileTransferPort", target.FileTransferPort()).
+		Str("RemoteTarget", target.Host).
+		Int("RPCPort", target.RPCPort).
+		Int("FileTransferPort", target.FileTransferPort).
 		Msg("Added target")
 }
 
