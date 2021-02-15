@@ -100,8 +100,10 @@ func New(containerId, bundlePath, imagePath string) RunnerContext {
 }
 
 func (ctx *RunnerContext) SetStatus(status RunnerStatus) {
-	log.Debug().Str("Status", string(status)).Msg("Status set")
-	ctx.status = status
+	ctx.WithLock(func() {
+		log.Debug().Str("Status", string(status)).Msg("Status set")
+		ctx.status = status
+	})
 }
 
 func (ctx *RunnerContext) Status() RunnerStatus {
