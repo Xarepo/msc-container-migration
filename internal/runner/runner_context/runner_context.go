@@ -104,11 +104,20 @@ func New(containerId, bundlePath, imagePath string) RunnerContext {
 	}
 }
 
+// Sets the status of the runner after locking
 func (ctx *RunnerContext) SetStatus(status RunnerStatus) {
 	ctx.WithLock(func() {
 		log.Debug().Str("Status", string(status)).Msg("Status set")
 		ctx.status = status
 	})
+}
+
+// Sets the status of the runner without locking.
+// Useful for when needing to set the status from within the callback passed to
+// WithLock().
+func (ctx *RunnerContext) SetStatusNoLock(status RunnerStatus) {
+	log.Debug().Str("Status", string(status)).Msg("Status set")
+	ctx.status = status
 }
 
 func (ctx *RunnerContext) Status() RunnerStatus {

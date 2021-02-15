@@ -226,86 +226,92 @@ func (runner *Runner) loopRunning() {
 }
 
 func (runner *Runner) loopMigrating() {
-	log.Debug().
-		Str("ContainerId", runner.ContainerId).
-		Msg("Migrating container")
+	runner.WithLock(func() {
+		log.Debug().
+			Str("ContainerId", runner.ContainerId).
+			Msg("Migrating container")
 
-	// Pre-dump
-	nextImg := runner.LatestImage.NextPreDumpImage()
-	runc.PreDump(
-		runner.ContainerId,
-		nextImg.Path(),
-		runner.LatestImage.Base(),
-	)
-	sftp.CopyToRemote(nextImg.Path(), &runner.Targets[0])
-	runner.LatestImage = nextImg
+		// Pre-dump
+		nextImg := runner.LatestImage.NextPreDumpImage()
+		runc.PreDump(
+			runner.ContainerId,
+			nextImg.Path(),
+			runner.LatestImage.Base(),
+		)
+		sftp.CopyToRemote(nextImg.Path(), &runner.Targets[0])
+		runner.LatestImage = nextImg
 
-	// Dump
-	nextImg = nextImg.NextDumpImage()
-	runc.Dump(
-		runner.ContainerId,
-		nextImg.Path(),
-		runner.LatestImage.Base(),
-		false)
-	sftp.CopyToRemote(nextImg.Path(), &runner.Targets[0])
-	runner.LatestImage = nextImg
+		// Dump
+		nextImg = nextImg.NextDumpImage()
+		runc.Dump(
+			runner.ContainerId,
+			nextImg.Path(),
+			runner.LatestImage.Base(),
+			false)
+		sftp.CopyToRemote(nextImg.Path(), &runner.Targets[0])
+		runner.LatestImage = nextImg
 
-	client, err := rpc.DialHTTP("tcp", runner.Targets[0].RPCAddr())
-	if err != nil {
-		log.Fatal().Msgf("dialing:%s", err)
-	}
+		client, err := rpc.DialHTTP("tcp", runner.Targets[0].RPCAddr())
+		if err != nil {
+			log.Fatal().Msgf("dialing:%s", err)
+		}
 
-	var reply struct{}
-	args := MigrateArgs{
-		ImagePath:   runner.LatestImage.Base(),
-		ContainerId: runner.ContainerId,
-		BundlePath:  runner.BundlePath,
-	}
-	err = client.Call("RPC.Migrate", args, &reply)
-	if err != nil {
-		log.Error().Str("Error", err.Error()).Msg("Failed to call RPC")
-		runner.SetStatus(runner_context.Failed)
-		return
-	}
+		var reply struct{}
+		args := MigrateArgs{
+			ImagePath:   runner.LatestImage.Base(),
+			ContainerId: runner.ContainerId,
+			BundlePath:  runner.BundlePath,
+		}
+		err = client.Call("RPC.Migrate", args, &reply)
+		if err != nil {
+			log.Error().Str("Error", err.Error()).Msg("Failed to call RPC")
+			runner.SetStatusNoLock(runner_context.Failed)
+			return
+		}
 
-	runner.SetStatus(runner_context.Stopped)
+		runner.SetStatusNoLock(runner_context.Stopped)
+	})
 }
 
 func (runner *Runner) loopRestoring() {
-	log.Trace().Msg("Restoring container")
-	go runc.Restore(
-		runner.ContainerId,
-		runner.LatestImage.Path(),
-		runner.BundlePath)
-	log.Info().
-		Str("ContainerId", runner.ContainerId).
-		Str("Image", runner.LatestImage.Path()).
-		Str("Bundle", runner.BundlePath).
-		Msg("Container restored")
-	runner.SetStatus(runner_context.Running)
+	runner.WithLock(func() {
+		log.Trace().Msg("Restoring container")
+		go runc.Restore(
+			runner.ContainerId,
+			runner.LatestImage.Path(),
+			runner.BundlePath)
+		log.Info().
+			Str("ContainerId", runner.ContainerId).
+			Str("Image", runner.LatestImage.Path()).
+			Str("Bundle", runner.BundlePath).
+			Msg("Container restored")
+		runner.SetStatusNoLock(runner_context.Running)
+	})
 }
 
 func (runner *Runner) loopJoining() {
-	log.Trace().Str("Remote", runner.Source).Msg("Joining cluster")
+	runner.WithLock(func() {
+		log.Trace().Str("Remote", runner.Source).Msg("Joining cluster")
 
-	client, err := rpc.DialHTTP("tcp", runner.Source)
-	if err != nil {
-		log.Fatal().Msgf("dialing:%s", err)
-	}
+		client, err := rpc.DialHTTP("tcp", runner.Source)
+		if err != nil {
+			log.Fatal().Msgf("dialing:%s", err)
+		}
 
-	var reply string
-	args := runner.ToTarget()
-	err = client.Call("RPC.Join", args, &reply)
-	if err != nil {
-		log.Error().Str("Error", err.Error()).Msg("Failed to call RPC")
-		runner.SetStatus(runner_context.Failed)
-		return
-	}
+		var reply string
+		args := runner.ToTarget()
+		err = client.Call("RPC.Join", args, &reply)
+		if err != nil {
+			log.Error().Str("Error", err.Error()).Msg("Failed to call RPC")
+			runner.SetStatus(runner_context.Failed)
+			return
+		}
 
-	runner.ContainerId = reply
+		runner.ContainerId = reply
 
-	log.Info().Str("ContainerId", reply).Msg("Successfully joined cluster")
-	runner.SetStatus(runner_context.StandBy)
+		log.Info().Str("ContainerId", reply).Msg("Successfully joined cluster")
+		runner.SetStatusNoLock(runner_context.StandBy)
+	})
 }
 
 func (runner *Runner) loopStandby() {
