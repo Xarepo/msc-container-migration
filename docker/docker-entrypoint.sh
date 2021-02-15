@@ -1,2 +1,2 @@
 service ssh start
-msc $@
+exec msc $@

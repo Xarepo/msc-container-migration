@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/rpc"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -39,6 +41,19 @@ func New(containerId, bundlePath, imagePath string) *Runner {
 }
 
 func (runner *Runner) Start() {
+	go func() {
+		for {
+			c := make(chan os.Signal, 1)
+			signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
+
+			// TODO: Handle signal
+			// Block until a signal is received.
+			s := <-c
+			log.Debug().Str("Signal", s.String()).Msg("Received signal")
+			runner.SetStatus(runner_context.Terminated)
+		}
+	}()
+
 	go runner.Loop()
 	go runner.IPCListener.Listen(func(buf []byte) {
 		ipc := ipc.ParseIPC(string(buf))
@@ -145,6 +160,23 @@ func (runner *Runner) Loop() {
 		case runner_context.Failed:
 			log.Error().Msg("The runner has failed")
 			for runner.Status() == runner_context.Failed {
+			}
+		case runner_context.Terminated:
+			runner.WithLock(func() {
+				log.Trace().
+					Str("ContainerId", runner.ContainerId).
+					Msg("Terminating runner")
+				err := runc.Kill(runner.ContainerId)
+				if err != nil {
+					log.Error().
+						Str("Error", err.Error()).
+						Msg("Failed to kill container, assuming failed state")
+					runner.SetStatusNoLock(runner_context.Failed)
+					return
+				}
+				runner.SetStatusNoLock(runner_context.Stopped)
+			})
+			for runner.Status() == runner_context.Terminated {
 			}
 		}
 	}

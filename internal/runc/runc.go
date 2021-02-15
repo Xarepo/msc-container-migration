@@ -3,6 +3,7 @@ package runc
 
 import (
 	"context"
+	"syscall"
 
 	_runc "github.com/containerd/go-runc"
 	"github.com/rs/zerolog/log"
@@ -87,4 +88,11 @@ func Restore(id, imagePath, bundle string) (int, error) {
 		CheckpointOpts: _runc.CheckpointOpts{ImagePath: imagePath},
 	}
 	return r.Restore(context.Background(), id, bundle, opts)
+}
+
+func Kill(containerId string) error {
+	log.Debug().Str("ContainerId", containerId).Msg("Killing container")
+
+	r := &_runc.Runc{}
+	return r.Kill(context.Background(), containerId, int(syscall.SIGKILL), nil)
 }

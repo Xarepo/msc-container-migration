@@ -52,19 +52,24 @@ import (
 // runner's loop.
 //
 // Failed:
-// The runner or its container has failed, and the runner is in a non-recoverable
-// state.
+// The runner or its container has failed, and the runner is in a
+// non-recoverable state.
+//
+// Terminated:
+// The runner has been deliberatly terminated via user input, e.g. signals
+// SIGTERM or SIGINT.
 type RunnerStatus string
 
 const (
-	Stopped   RunnerStatus = "Stopped"
-	StandBy                = "StandBy"
-	Running                = "Running"
-	Migrating              = "Migrating"
-	Restoring              = "Restoring"
-	Joining                = "Joining"
-	Recovery               = "Recovery"
-	Failed                 = "Failed"
+	Stopped    RunnerStatus = "Stopped"
+	StandBy                 = "StandBy"
+	Running                 = "Running"
+	Migrating               = "Migrating"
+	Restoring               = "Restoring"
+	Joining                 = "Joining"
+	Recovery                = "Recovery"
+	Failed                  = "Failed"
+	Terminated              = "Terminated"
 )
 
 // RunnerContext represents the state of the runner.
