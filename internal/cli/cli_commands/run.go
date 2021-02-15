@@ -5,6 +5,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/Xarepo/msc-container-migration/internal/runner"
+	"github.com/Xarepo/msc-container-migration/internal/runner/runner_context"
 )
 
 type Run struct {
@@ -26,11 +27,13 @@ func (cmd Run) Execute() error {
 	runner := runner.New(cmd.ContainerId, cmd.BundlePath, "")
 
 	runner.Start()
-	runner.Run()
+	runner.StartContainer()
 
 	log.Trace().Msg("Waiting for container to exit")
-	status := runner.WaitFor()
-
+	status := runner.WaitForContainer()
 	log.Info().Int("Status", status).Msg("Container exited")
+
+	log.Info().Msg("Stopping runner...")
+	runner.SetStatus(runner_context.Stopped)
 	return nil
 }

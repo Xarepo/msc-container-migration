@@ -63,59 +63,34 @@ func (runner *Runner) Start() {
 	os.MkdirAll("/dumps", os.ModeDir)
 }
 
-func (runner *Runner) Run() {
-	imagePath := ""
-	if runner.LatestImage != nil {
-		imagePath = runner.LatestImage.Path()
-	}
-
-	go runner.runContainer(imagePath)
+// Start the container and set the status to running
+func (runner *Runner) StartContainer() {
+	go runner.runContainer()
 	runner.SetStatus(runner_context.Running)
 	log.Debug().Msg("Runner running")
 }
 
-func (runner *Runner) restoreContainer() {
-	status, err := runc.Restore(
-		runner.ContainerId,
-		runner.LatestImage.Path(),
-		runner.BundlePath,
-	)
-	if err != nil {
-		log.Error().
-			Str("Error", err.Error()).
-			Int("Status", status).
-			Msg("Error running container")
-	} else {
-		log.Info().Int("Status", status).Msg("Container exited")
-	}
-	runner.ContainerStatus <- status
+// Restore the container and set the status to running
+func (runner *Runner) RestoreContainer() {
+	go runner.restoreContainer()
+	runner.SetStatus(runner_context.Running)
+	log.Debug().Msg("Runner restored")
 }
 
 // Wait for the runner to finish running.
-func (runner *Runner) WaitFor() int {
-	status := <-runner.ContainerStatus
-	for runner.Status() == runner_context.Running ||
-		runner.Status() == runner_context.Migrating {
-	}
-	return status
+func (runner *Runner) WaitForContainer() int {
+	return <-runner.ContainerStatus
 }
 
-// Run the container, either from scratch or by restoring it.
-//
-// @param imagePath: The path to the image from which to restore the container.
-//	If this is empty, then the container is started from scratch.
-func (runner *Runner) runContainer(imagePath string) {
-	var status int
-	var err error
-	if imagePath == "" {
-		status, err = runc.Run(runner.ContainerId, runner.BundlePath)
-	} else {
-		status, err = runc.Restore(
-			runner.ContainerId,
-			runner.LatestImage.Path(),
-			runner.BundlePath,
-		)
+// Wait for the runner to finish running.
+func (runner *Runner) WaitFor() {
+	for runner.Status() != runner_context.Failed &&
+		runner.Status() != runner_context.Stopped {
 	}
+}
+
+func (runner *Runner) runContainer() {
+	status, err := runc.Run(runner.ContainerId, runner.BundlePath)
 	if err != nil {
 		if status == 137 {
 			log.Warn().Msg("Container exited with status 137 (SIGKILL), assuming it was checkpointed...")
@@ -126,7 +101,28 @@ func (runner *Runner) runContainer(imagePath string) {
 				Msg("Error running container")
 		}
 	} else {
-		log.Info().Str("Status", string(status)).Msg("Container exited")
+		log.Info().Int("Status", status).Msg("Container exited")
+	}
+	runner.ContainerStatus <- status
+}
+
+func (runner *Runner) restoreContainer() {
+	status, err := runc.Restore(
+		runner.ContainerId,
+		runner.LatestImage.Path(),
+		runner.BundlePath,
+	)
+	if err != nil {
+		if status == 137 {
+			log.Warn().Msg("Container exited with status 137 (SIGKILL), assuming it was checkpointed...")
+		} else {
+			log.Error().
+				Str("Error", err.Error()).
+				Int("Status", status).
+				Msg("Error running container")
+		}
+	} else {
+		log.Info().Int("Status", status).Msg("Container exited")
 	}
 	runner.ContainerStatus <- status
 }
@@ -276,10 +272,7 @@ func (runner *Runner) loopMigrating() {
 func (runner *Runner) loopRestoring() {
 	runner.WithLock(func() {
 		log.Trace().Msg("Restoring container")
-		go runc.Restore(
-			runner.ContainerId,
-			runner.LatestImage.Path(),
-			runner.BundlePath)
+		go runner.restoreContainer()
 		log.Info().
 			Str("ContainerId", runner.ContainerId).
 			Str("Image", runner.LatestImage.Path()).
@@ -303,7 +296,7 @@ func (runner *Runner) loopJoining() {
 		err = client.Call("RPC.Join", args, &reply)
 		if err != nil {
 			log.Error().Str("Error", err.Error()).Msg("Failed to call RPC")
-			runner.SetStatus(runner_context.Failed)
+			runner.SetStatusNoLock(runner_context.Failed)
 			return
 		}
 
@@ -347,7 +340,7 @@ func (runner *Runner) loopRecovery() {
 	runner.Source = ""
 
 	log.Info().Str("Dump", runner.LatestImage.Path()).Msg("Recovering from dump")
-	runner.Run()
+	runner.RestoreContainer()
 }
 
 func (runner *Runner) ToTarget() remote_target.RemoteTarget {

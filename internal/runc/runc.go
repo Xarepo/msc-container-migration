@@ -86,6 +86,5 @@ func Restore(id, imagePath, bundle string) (int, error) {
 		IO:             io,
 		CheckpointOpts: _runc.CheckpointOpts{ImagePath: imagePath},
 	}
-	// TODO: No use in returning here as this is run in a goroutine
 	return r.Restore(context.Background(), id, bundle, opts)
 }
