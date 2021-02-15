@@ -247,7 +247,6 @@ func (runner *Runner) loopRunning() {
 				}
 			}
 		case <-done:
-			log.Trace().Msg("DONE RUNNING")
 			return
 		}
 	}

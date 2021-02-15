@@ -23,7 +23,9 @@ func (usock USockListener) Listen(callback func(buf []byte)) {
 	if err != nil {
 		log.Error().Msgf("Failed to listen: %s", err)
 	}
-	log.Info().Str("Address", SOCK_ADDR).Msg("Listening on socket")
+	log.Debug().
+		Str("Address", SOCK_ADDR).
+		Msg("Listening for IPC messages on socket")
 	defer l.Close()
 
 	for {
