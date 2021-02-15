@@ -22,10 +22,11 @@ import (
 // Standby:
 // The runner has been started, but is not running, it is waiting to either
 // a) be run and transition into running status or b) be restored from a dumped
-// image by migration request.
+// image by migration request. At this point the runner's loop, IPC-listener
+// and RPC-listener has been started, but not yet the container.
 //
 // Running:
-// The runner is running. This means the runner has, or is the process of
+// The runner is running. This means the runner has, or is in the process of
 // creating and starting the container.
 //
 // Migrating:
@@ -137,6 +138,8 @@ func (ctx *RunnerContext) RPCPort() int {
 	return ctx.rpcPort
 }
 
+// Locks the context's lock and call a function.
+// Handles both locking and unlocking of the lock.
 func (ctx *RunnerContext) WithLock(f func()) {
 	ctx.lock.Lock()
 	f()
