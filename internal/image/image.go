@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
-	"os"
 	"regexp"
 	"strconv"
 
 	"github.com/rs/zerolog/log"
+
+	"github.com/Xarepo/msc-container-migration/internal/env"
 )
 
 type Image struct {
@@ -42,7 +43,7 @@ func Restore(imagePath string) *Image {
 // prefixed with 'd'), i.e. for all directories of the form "dX", its X is
 // maximal.
 func Recover() *Image {
-	entries, err := ioutil.ReadDir(os.Getenv("DUMP_PATH"))
+	entries, err := ioutil.ReadDir(env.Getenv().DUMP_PATH)
 	if err != nil {
 		log.Error().
 			Str("Error", err.Error()).
@@ -70,7 +71,7 @@ func Recover() *Image {
 }
 
 func (img Image) Path() string {
-	return fmt.Sprintf("%s/%s", os.Getenv("DUMP_PATH"), img.Base())
+	return fmt.Sprintf("%s/%s", env.Getenv().DUMP_PATH, img.Base())
 }
 
 func (img Image) Base() string {

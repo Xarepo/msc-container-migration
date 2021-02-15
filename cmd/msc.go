@@ -6,19 +6,21 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/Xarepo/msc-container-migration/internal/cli"
+	"github.com/Xarepo/msc-container-migration/internal/env"
 	"github.com/Xarepo/msc-container-migration/internal/logger"
 	"github.com/Xarepo/msc-container-migration/internal/runc"
 )
 
 func main() {
+	// Use log level directly here, before env.Init(), to get nice logs.
 	logLevel := os.Getenv("LOG_LEVEL")
-
-	if logLevel == "" {
-		logLevel = "info"
-	}
 	if err := logger.InitLogger(logLevel); err != nil {
-		log.Error().Msg("Failed to initialize logger, exiting...")
-		os.Exit(1)
+		log.Fatal().Msg("Failed to initialize logger, exiting...")
+	}
+
+	err := env.Init()
+	if err != nil {
+		log.Fatal().Str("Error", err.Error()).Msg("Failed to initialize environment")
 	}
 
 	// Print version numbers

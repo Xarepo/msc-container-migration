@@ -12,6 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/Xarepo/msc-container-migration/internal/env"
 	"github.com/Xarepo/msc-container-migration/internal/remote_target"
 )
 
@@ -25,8 +26,8 @@ func isSymlink(fileName string) bool {
 }
 
 func CopyToRemote(dumpName string, target *remote_target.RemoteTarget) {
-	user := os.Getenv("SCP_USER")
-	password := os.Getenv("SCP_PASSWORD")
+	user := env.Getenv().SCP_USER
+	password := env.Getenv().SCP_PASSWORD
 	log.Debug().
 		Str("User", user).
 		Str("Password", password).

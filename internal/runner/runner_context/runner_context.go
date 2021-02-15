@@ -1,12 +1,11 @@
 package runner_context
 
 import (
-	"os"
-	"strconv"
 	"sync"
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/Xarepo/msc-container-migration/internal/env"
 	. "github.com/Xarepo/msc-container-migration/internal/image"
 	. "github.com/Xarepo/msc-container-migration/internal/ipc_listener"
 	"github.com/Xarepo/msc-container-migration/internal/remote_target"
@@ -86,24 +85,12 @@ type RunnerContext struct {
 }
 
 func New(containerId, bundlePath, imagePath string) RunnerContext {
-	var rpcPort int
-	var err error
-	if os.Getenv("RPC_PORT") == "" {
-		log.Warn().Msg("Environment variable RPC_PORT not set, defaulting to 1234.")
-		rpcPort = 1234
-	} else {
-		rpcPort, err = strconv.Atoi(os.Getenv("RPC_PORT"))
-		if err != nil {
-			log.Panic().Str("Error", err.Error()).Msg("Failed to parse RPC port")
-		}
-	}
-
 	return RunnerContext{
 		ContainerId:     containerId,
 		ContainerStatus: make(chan int),
 		BundlePath:      bundlePath,
 		IPCListener:     USockListener{},
-		rpcPort:         rpcPort,
+		rpcPort:         env.Getenv().RPC_PORT,
 		status:          Stopped,
 		LatestImage:     nil,
 		Targets:         []remote_target.RemoteTarget{},

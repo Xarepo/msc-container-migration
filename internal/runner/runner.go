@@ -10,6 +10,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/Xarepo/msc-container-migration/internal/env"
 	"github.com/Xarepo/msc-container-migration/internal/image"
 	"github.com/Xarepo/msc-container-migration/internal/ipc"
 	"github.com/Xarepo/msc-container-migration/internal/remote_target"
@@ -339,7 +340,7 @@ func (runner *Runner) ToTarget() remote_target.RemoteTarget {
 	return remote_target.New(
 		utils.GetLocalIP(),
 		runner.RPCPort(),
-		os.Getenv("DUMP_PATH"),
+		env.Getenv().DUMP_PATH,
 		22, // TODO: Don't hard code port
 	)
 }
