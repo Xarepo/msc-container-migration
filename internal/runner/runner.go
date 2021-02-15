@@ -146,6 +146,10 @@ func (runner *Runner) Loop() {
 			runner.loopStandby()
 		case runner_context.Recovery:
 			runner.loopRecovery()
+		case runner_context.Failed:
+			log.Error().Msg("The runner has failed")
+			for runner.Status() == runner_context.Failed {
+			}
 		}
 	}
 }
@@ -208,8 +212,10 @@ func (runner *Runner) loopRunning() {
 				var args struct{}
 				err = client.Call("RPC.Ping", args, &reply)
 				if err != nil {
-					log.Error().Str("Error", err.Error()).Send()
-					// TODO: Handle error
+					log.Warn().
+						Str("Error", err.Error()).
+						Str("Target", target.RPCAddr()).
+						Msg("Failed to call PING RPC")
 				}
 			}
 		case <-done:
@@ -257,8 +263,9 @@ func (runner *Runner) loopMigrating() {
 	}
 	err = client.Call("RPC.Migrate", args, &reply)
 	if err != nil {
-		log.Error().Str("Error", err.Error()).Send()
-		// TODO: Handle error
+		log.Error().Str("Error", err.Error()).Msg("Failed to call RPC")
+		runner.SetStatus(runner_context.Failed)
+		return
 	}
 
 	runner.SetStatus(runner_context.Stopped)
@@ -290,8 +297,9 @@ func (runner *Runner) loopJoining() {
 	args := runner.ToTarget()
 	err = client.Call("RPC.Join", args, &reply)
 	if err != nil {
-		log.Error().Str("Error", err.Error()).Send()
-		// TODO: Handle error
+		log.Error().Str("Error", err.Error()).Msg("Failed to call RPC")
+		runner.SetStatus(runner_context.Failed)
+		return
 	}
 
 	runner.ContainerId = reply

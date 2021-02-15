@@ -49,6 +49,10 @@ import (
 // is in the process of recovery from the latest possible dump.
 // NOTE: The runner should always have this status for EXACTLY one cycle of the
 // runner's loop.
+//
+// Failed:
+// The runner or its container has failed, and the runner is in a non-recoverable
+// state.
 type RunnerStatus string
 
 const (
@@ -59,6 +63,7 @@ const (
 	Restoring              = "Restoring"
 	Joining                = "Joining"
 	Recovery               = "Recovery"
+	Failed                 = "Failed"
 )
 
 // RunnerContext represents the state of the runner.
