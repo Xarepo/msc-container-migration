@@ -45,6 +45,12 @@ Parsed as a boolean, see
 [strconv.ParseBool()](https://golang.org/pkg/strconv/#ParseBool) for valid
 formats.
 
+#### DUMP_INTERVAL
+
+_required: no, default: 5_
+
+The length, in seconds, of the intervals between performing dumps.
+
 ## Running
 
 ### Example OCI-bundles

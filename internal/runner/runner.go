@@ -184,7 +184,9 @@ func (runner *Runner) Loop() {
 
 func (runner *Runner) loopRunning() {
 	dumpFreq := 3
-	dumpTick := time.NewTicker(2 * time.Second)
+	dumpTick := time.NewTicker(
+		time.Duration(env.Getenv().DUMP_INTERVAL) * time.Second,
+	)
 	pingTick := time.NewTicker(1 * time.Second)
 	done := make(chan bool)
 	go func() {

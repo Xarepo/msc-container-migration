@@ -18,6 +18,7 @@ type _env struct {
 	SCP_USER, SCP_PASSWORD string
 	RPC_PORT               int
 	CRIU_TCP_ESTABLISHED   bool
+	DUMP_INTERVAL          int
 }
 
 var env _env
@@ -38,6 +39,11 @@ func Init() error {
 	}
 
 	env.RPC_PORT, err = getInt("RPC_PORT", 1234)
+	if err != nil {
+		return err
+	}
+
+	env.DUMP_INTERVAL, err = getInt("DUMP_INTERVAL", 5)
 	if err != nil {
 		return err
 	}
