@@ -47,9 +47,75 @@ formats.
 
 ## Running
 
+### Example OCI-bundles
+
+While the system should work with any OCI-bundle, how to generate some examples
+that may be interesting are provided here.
+
+Dependencies:
+
+- [oci-runtime-tool](https://github.com/opencontainers/runtime-tools)
+- [Docker](https://www.docker.com/)
+
+#### Counter
+
+This a minimal example of an OCI-bundle that runs a simple script
+that increments an integer every second.
+
+To generate the `rootfs`, any simple filesystem containing a shell should work.
+Here, [busybox](https://hub.docker.com/_/busybox/) is used.
+
+```shell
+mkdir -p rootfs && docker export $(docker create busybox) | tar xvfC - rootfs
+```
+
+Next we need to copy the actual script to execute:
+
+```shell
+cp demos/runc/count.sh rootfs/
+```
+
+Generating `config.json`:
+
+```shell
+oci-runtime-tool generate \
+	--args "sh" --args "/count.sh" \
+	--linux-namespace-remove network > config.json
+```
+
+#### Redis
+
+This example creates an OCI-bundle for a redis database.
+
+```shell
+mkdir -p rootfs && docker export $(docker create redis) | tar xvfC - rootfs
+```
+
+Generate `config.json`:
+
+```shell
+oci-runtime-tool generate \
+	--args "redis-server" --args "--save ''" --args "--appendonly no" \
+	--linux-namespace-remove network > config.json
+```
+
+The `--save ''` and `--appendonly no` options passed to the `--args` options
+disables writing the redis database to disk, keeping everything in-memory, as
+the system is not able to deal with persistent storage.
+
+The database can populate with junk data for testing using the script
+`scripts/redis/redis_populate.lua`, which generates `n` pairs of the form `i=i`
+for every `0<=i<n`, where `n` is the first argument passed to script. The script
+can be evaluated as follows:
+
+```shell
+redis-cli -h <host> --eval scripts/redis/redis_populate.lua <n>
+```
+
 ### Docker
 
-A node can be run in docker in order to simulate different hosts.
+After creating a OCI-bundle a node can be run in docker in order to simulate
+different hosts.
 Building:
 
 ```shell
