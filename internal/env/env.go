@@ -24,11 +24,22 @@ type _env struct {
 
 var env _env
 
+// Default values for the optional environment variables.
+const (
+	_DEFAULT_LOG_LEVEL            = "info"
+	_DEFAULT_DUMP_PATH            = "/dumps"
+	_DEFAULT_RPC_PORT             = 1234
+	_DEFAULT_DUMP_INTERVAL        = 5
+	_DEFAULT_PING_INTERVAL        = 1
+	_DEFAULT_PING_TIMEOUT         = 5
+	_DEFAULT_CRIU_TCP_ESTABLISHED = false
+)
+
 func Init() error {
 	var err error
 	log.Trace().Msg("Initializing environment")
-	env.LOG_LEVEL = getString("LOG_LEVEL", "info")
-	env.DUMP_PATH = getString("DUMP_PATH", "/dumps")
+	env.LOG_LEVEL = getString("LOG_LEVEL", _DEFAULT_LOG_LEVEL)
+	env.DUMP_PATH = getString("DUMP_PATH", _DEFAULT_DUMP_PATH)
 
 	env.SCP_USER, err = getStringRequired("SCP_USER")
 	if err != nil {
@@ -39,21 +50,21 @@ func Init() error {
 		return err
 	}
 
-	env.RPC_PORT, err = getInt("RPC_PORT", 1234)
+	env.RPC_PORT, err = getInt("RPC_PORT", _DEFAULT_RPC_PORT)
 	if err != nil {
 		return err
 	}
 
-	env.DUMP_INTERVAL, err = getInt("DUMP_INTERVAL", 5)
+	env.DUMP_INTERVAL, err = getInt("DUMP_INTERVAL", _DEFAULT_DUMP_INTERVAL)
 	if err != nil {
 		return err
 	}
 
-	env.PING_INTERVAL, err = getInt("PING_INTERVAL", 1)
+	env.PING_INTERVAL, err = getInt("PING_INTERVAL", _DEFAULT_PING_INTERVAL)
 	if err != nil {
 		return err
 	}
-	env.PING_TIMEOUT, err = getInt("PING_TIMEOUT", 5)
+	env.PING_TIMEOUT, err = getInt("PING_TIMEOUT", _DEFAULT_PING_TIMEOUT)
 	if err != nil {
 		return err
 	}
@@ -65,7 +76,10 @@ func Init() error {
 				" Any node joining the cluster will always restore")
 	}
 
-	env.CRIU_TCP_ESTABLISHED, err = getBool("CRIU_TCP_ESTABLISHED", false)
+	env.CRIU_TCP_ESTABLISHED, err = getBool(
+		"CRIU_TCP_ESTABLISHED",
+		_DEFAULT_CRIU_TCP_ESTABLISHED,
+	)
 	if err != nil {
 		return err
 	}
