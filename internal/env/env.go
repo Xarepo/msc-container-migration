@@ -17,6 +17,7 @@ type _env struct {
 	DUMP_PATH              string
 	SCP_USER, SCP_PASSWORD string
 	RPC_PORT               int
+	CRIU_TCP_ESTABLISHED   bool
 }
 
 var env _env
@@ -37,6 +38,11 @@ func Init() error {
 	}
 
 	env.RPC_PORT, err = getInt("RPC_PORT", 1234)
+	if err != nil {
+		return err
+	}
+
+	env.CRIU_TCP_ESTABLISHED, err = getBool("CRIU_TCP_ESTABLISHED", false)
 	if err != nil {
 		return err
 	}
@@ -92,4 +98,27 @@ func getInt(name string, defaultValue int) (int, error) {
 	}
 
 	return valInt, nil
+}
+
+func getBool(name string, defaultValue bool) (bool, error) {
+	val := os.Getenv(name)
+	if val == "" {
+		log.Warn().
+			Str("Variable", name).
+			Bool("DefaultValue", defaultValue).
+			Msg("Environment variable not set, using default value")
+		return defaultValue, nil
+	}
+
+	valBool, err := strconv.ParseBool(val)
+	if err != nil {
+		return false, errors.New(
+			fmt.Sprintf(
+				"Failed to parse bool from environment variable %s: %s",
+				name,
+				err.Error(),
+			),
+		)
+	}
+	return valBool, nil
 }

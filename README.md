@@ -33,6 +33,18 @@ _required: no, default: 22_
 
 The port from which to receive file transfers.
 
+#### CRIU_TCP_ESTABLISHED
+
+_required: no, default: false_
+
+Whether or not to pass the `AllowOpenTCP` option to go-runc which in turn
+passes it as the `--tcp-established` option to CRIU while
+checkpointing. Needed for checkpointing TCP connections, see the
+[CRIU documentation](https://criu.org/TCP_connection) for more information.
+Parsed as a boolean, see
+[strconv.ParseBool()](https://golang.org/pkg/strconv/#ParseBool) for valid
+formats.
+
 ## Running
 
 ### Docker

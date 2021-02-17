@@ -5,13 +5,16 @@ WORKDIR /app
 # Add the binaries to the path
 ENV PATH /app:$PATH
 
+# Get build and runtime-dependencies.
+# iptables is needed for checkpointing TCP connections.
 RUN apt-get update && apt-get install -y \
 	git \
 	golang \
 	ca-certificates \
 	runc \
 	criu \
-	ssh
+	ssh \
+	iptables
 
 COPY docker/docker-entrypoint.sh .
 RUN chmod +x docker-entrypoint.sh

@@ -7,6 +7,8 @@ import (
 
 	_runc "github.com/containerd/go-runc"
 	"github.com/rs/zerolog/log"
+
+	"github.com/Xarepo/msc-container-migration/internal/env"
 )
 
 // Return the version numbers for runc
@@ -54,7 +56,11 @@ func Dump(id, imagePath, parentPath string, leaveRunning bool) {
 		Msg("Dumping container")
 
 	r := &_runc.Runc{}
-	opts := _runc.CheckpointOpts{ImagePath: imagePath, AllowTerminal: true}
+	opts := _runc.CheckpointOpts{
+		ImagePath:     imagePath,
+		AllowTerminal: true,
+		AllowOpenTCP:  env.Getenv().CRIU_TCP_ESTABLISHED,
+	}
 	if parentPath != "" {
 		opts.ParentPath = parentPath
 	}
@@ -84,8 +90,11 @@ func Restore(id, imagePath, bundle string) (int, error) {
 
 	r := &_runc.Runc{}
 	opts := &_runc.RestoreOpts{
-		IO:             io,
-		CheckpointOpts: _runc.CheckpointOpts{ImagePath: imagePath},
+		IO: io,
+		CheckpointOpts: _runc.CheckpointOpts{
+			ImagePath:    imagePath,
+			AllowOpenTCP: env.Getenv().CRIU_TCP_ESTABLISHED,
+		},
 	}
 	return r.Restore(context.Background(), id, bundle, opts)
 }
