@@ -10,9 +10,13 @@ import (
 	"github.com/Xarepo/msc-container-migration/internal/usock_listener"
 )
 
-func sendMessage(msg *[]byte, containerId string) {
+func sendMessage(msg *[]byte) {
 	sockAddr := usock_listener.SOCK_ADDR
-	c, err := net.Dial("unix", sockAddr)
+	c, err := net.DialUnix(
+		"unixgram",
+		nil,
+		&net.UnixAddr{Name: sockAddr, Net: "unixgram"},
+	)
 	if err != nil {
 		log.Error().Str("Error", err.Error()).Msgf("Failed to connect IPC socket")
 		panic(err)
@@ -32,7 +36,10 @@ type IPC interface {
 }
 
 // Available IPCs
-const IPC_MIGRATE = "MIGRATE"
+const (
+	IPC_MIGRATE    = "MIGRATE"
+	IPC_CHECKPOINT = "CHECKPOINT"
+)
 
 func ParseIPC(message string) IPC {
 	fields := strings.Split(message, " ")
@@ -41,6 +48,8 @@ func ParseIPC(message string) IPC {
 	switch fields[0] {
 	case IPC_MIGRATE:
 		ipc = &Migrate{}
+	case IPC_CHECKPOINT:
+		ipc = &Checkpoint{}
 	default:
 		log.Error().Str("IPC", fields[0]).Msg("Received unknown IPC")
 		return nil

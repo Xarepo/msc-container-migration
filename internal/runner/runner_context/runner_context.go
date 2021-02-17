@@ -100,7 +100,7 @@ func New(containerId, bundlePath, imagePath string) RunnerContext {
 		ContainerId:     containerId,
 		ContainerStatus: make(chan int),
 		BundlePath:      bundlePath,
-		IPCListener:     USockListener{},
+		IPCListener:     &USockListener{},
 		rpcPort:         env.Getenv().RPC_PORT,
 		status:          Stopped,
 		LatestImage:     nil,

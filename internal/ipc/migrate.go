@@ -15,7 +15,7 @@ type Migrate struct {
 
 func (migrate Migrate) Send() {
 	msg := []byte(fmt.Sprintf("%s %s", IPC_MIGRATE, migrate.ContainerId))
-	sendMessage(&msg, migrate.ContainerId)
+	sendMessage(&msg)
 }
 
 func (migrate Migrate) Execute(ctx *runner_context.RunnerContext) {
