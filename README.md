@@ -58,6 +58,13 @@ _required: no, default: 1_
 The length, in seconds, of the intervals between sending pings to nodes in the
 cluster.
 
+#### PING_TIMEOUT
+
+_required: no, default: 5_
+
+The length, in seconds, of how long to wait for PING RPCs before considering
+the source to be down.
+
 ## Running
 
 ### Example OCI-bundles

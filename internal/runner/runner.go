@@ -351,13 +351,13 @@ func (runner *Runner) loopStandby() {
 			done <- true
 		}()
 		for {
-			duration := 5 * time.Second
+			pingTimeout := time.Duration(env.Getenv().PING_TIMEOUT) * time.Second
 			select {
-			case <-time.After(duration):
+			case <-time.After(pingTimeout):
 				log.Warn().
 					Msgf(
 						"No ping received in %s. Assuming source is down. Starting recovery",
-						duration.String(),
+						pingTimeout.String(),
 					)
 				runner.SetStatus(runner_context.Recovery)
 			case <-runner.PingInterrupt:

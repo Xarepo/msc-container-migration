@@ -13,13 +13,13 @@ import (
 )
 
 type _env struct {
-	LOG_LEVEL              string
-	DUMP_PATH              string
-	SCP_USER, SCP_PASSWORD string
-	RPC_PORT               int
-	CRIU_TCP_ESTABLISHED   bool
-	DUMP_INTERVAL          int
-	PING_INTERVAL          int
+	LOG_LEVEL                   string
+	DUMP_PATH                   string
+	SCP_USER, SCP_PASSWORD      string
+	RPC_PORT                    int
+	CRIU_TCP_ESTABLISHED        bool
+	DUMP_INTERVAL               int
+	PING_INTERVAL, PING_TIMEOUT int
 }
 
 var env _env
@@ -52,6 +52,17 @@ func Init() error {
 	env.PING_INTERVAL, err = getInt("PING_INTERVAL", 1)
 	if err != nil {
 		return err
+	}
+	env.PING_TIMEOUT, err = getInt("PING_TIMEOUT", 5)
+	if err != nil {
+		return err
+	}
+	if env.PING_TIMEOUT < env.PING_INTERVAL {
+		log.Warn().
+			Int("PING_TIMEOUT", env.PING_TIMEOUT).
+			Int("PING_INTERVAL", env.PING_INTERVAL).
+			Msg("PING_TIMEOUT is less than PING_INTERVAL." +
+				" Any node joining the cluster will always restore")
 	}
 
 	env.CRIU_TCP_ESTABLISHED, err = getBool("CRIU_TCP_ESTABLISHED", false)
