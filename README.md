@@ -47,11 +47,14 @@ docker build -t msc -f docker/Dockerfile .
 Docker sets the the cgroup filesystems in `/sys` to read-only. In order for runc
 to mount these in the container, the `SYS_CAP_ADMIN` capability needs to be set,
 which can be done via the `--privileged` flag to `docker run`.
-Also the OCI-bundle's `rootfs` needs to be passed to the container using the `-v`
-flag.
+Also the OCI-bundle's `rootfs` and `config.json` need to be passed to the
+container as volumes using the `v` flag.
 
 Running
 
 ```shell
-docker run --name msc --privileged -v $(pwd):/rootfs:/app/rootfs msc <options>
+docker run --name msc --privileged \
+	-v $(pwd)/rootfs:/app/rootfs \
+	-v $(pwd)/config.json:/app/config.json \
+	msc <options>
 ```

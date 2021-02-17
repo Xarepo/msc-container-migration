@@ -7,20 +7,11 @@ ENV PATH /app:$PATH
 
 RUN apt-get update && apt-get install -y \
 	git \
-	make \
 	golang \
-	go-md2man \
 	ca-certificates \
 	runc \
 	criu \
 	ssh
-
-# Compile oci-runtime-tools
-ENV GOPATH=/go
-RUN go get -v github.com/opencontainers/runtime-tools; exit 0 
-RUN cd $GOPATH/src/github.com/opencontainers/runtime-tools && make && make install
-RUN oci-runtime-tool generate --args "sh" --args "/count.sh" \
-	--linux-namespace-remove network  > config.json
 
 COPY docker/docker-entrypoint.sh .
 RUN chmod +x docker-entrypoint.sh
