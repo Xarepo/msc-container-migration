@@ -187,7 +187,9 @@ func (runner *Runner) loopRunning() {
 	dumpTick := time.NewTicker(
 		time.Duration(env.Getenv().DUMP_INTERVAL) * time.Second,
 	)
-	pingTick := time.NewTicker(1 * time.Second)
+	pingTick := time.NewTicker(
+		time.Duration(env.Getenv().PING_INTERVAL) * time.Second,
+	)
 	done := make(chan bool)
 	go func() {
 		for runner.Status() == runner_context.Running {

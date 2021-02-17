@@ -51,6 +51,13 @@ _required: no, default: 5_
 
 The length, in seconds, of the intervals between performing dumps.
 
+#### PING_INTERVAL
+
+_required: no, default: 1_
+
+The length, in seconds, of the intervals between sending pings to nodes in the
+cluster.
+
 ## Running
 
 ### Example OCI-bundles

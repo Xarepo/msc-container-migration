@@ -19,6 +19,7 @@ type _env struct {
 	RPC_PORT               int
 	CRIU_TCP_ESTABLISHED   bool
 	DUMP_INTERVAL          int
+	PING_INTERVAL          int
 }
 
 var env _env
@@ -44,6 +45,11 @@ func Init() error {
 	}
 
 	env.DUMP_INTERVAL, err = getInt("DUMP_INTERVAL", 5)
+	if err != nil {
+		return err
+	}
+
+	env.PING_INTERVAL, err = getInt("PING_INTERVAL", 1)
 	if err != nil {
 		return err
 	}
