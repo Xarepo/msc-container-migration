@@ -160,9 +160,7 @@ func (runner *Runner) Loop() {
 		case runner_context.Recovery:
 			runner.loopRecovery()
 		case runner_context.Failed:
-			log.Error().Msg("The runner has failed")
-			for runner.Status() == runner_context.Failed {
-			}
+			log.Fatal().Msg("The runner has failed")
 		case runner_context.Terminated:
 			runner.WithLock(func() {
 				log.Trace().
