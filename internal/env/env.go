@@ -35,6 +35,10 @@ const (
 	_DEFAULT_CRIU_TCP_ESTABLISHED = false
 )
 
+// Initialize the environment.
+// If any required variables are missing, then an error will be returned and
+// the environment should not be used as the rest of the environment will be
+// uninitialized.
 func Init() error {
 	var err error
 	log.Trace().Msg("Initializing environment")

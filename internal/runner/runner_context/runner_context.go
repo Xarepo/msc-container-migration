@@ -86,10 +86,13 @@ type RunnerContext struct {
 	// The latest dump that the runner has made, i.e. written to disk.
 	LatestDump *Dump
 	IPCListener
-	rpcPort       int
-	status        RunnerStatus
-	lock          sync.Mutex
-	Targets       []remote_target.RemoteTarget
+	rpcPort int
+	status  RunnerStatus
+	lock    sync.Mutex
+	// A list of targets of which to replicate when the runner is running.
+	Targets []remote_target.RemoteTarget
+	// The address of the source node to listen to for migrations. This will be
+	// empty if the runner is running.
 	Source        string
 	PingInterrupt chan bool
 }
@@ -125,10 +128,12 @@ func (ctx *RunnerContext) SetStatusNoLock(status RunnerStatus) {
 	ctx.status = status
 }
 
+// Return the status of the runner.
 func (ctx *RunnerContext) Status() RunnerStatus {
 	return ctx.status
 }
 
+// Add a target to the targets list.
 func (ctx *RunnerContext) AddTarget(target remote_target.RemoteTarget) {
 	ctx.Targets = append(ctx.Targets, target)
 	log.Info().
@@ -138,11 +143,12 @@ func (ctx *RunnerContext) AddTarget(target remote_target.RemoteTarget) {
 		Msg("Added target")
 }
 
+// Return the RPC port of the runner.
 func (ctx *RunnerContext) RPCPort() int {
 	return ctx.rpcPort
 }
 
-// Locks the context's lock and call a function.
+// Locks the context's lock and calls a function.
 // Handles both locking and unlocking of the lock.
 func (ctx *RunnerContext) WithLock(f func()) {
 	ctx.lock.Lock()

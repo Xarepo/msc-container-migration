@@ -40,14 +40,16 @@ func New(containerId, bundlePath string) *Runner {
 	return &runner
 }
 
+// Start the runner.
+// This starts the runner's loop, IPC/RPC-listener and signals handler, and
+// sets the runner's status to standby.
 func (runner *Runner) Start() {
+	// Handle signals
 	go func() {
 		for {
 			c := make(chan os.Signal, 1)
 			signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
 
-			// TODO: Handle signal
-			// Block until a signal is received.
 			s := <-c
 			log.Debug().Str("Signal", s.String()).Msg("Received signal")
 			runner.SetStatus(runner_context.Terminated)
@@ -378,6 +380,7 @@ func (runner *Runner) loopRecovery() {
 	runner.RestoreContainer()
 }
 
+// Get the current runner represented as a remote target.
 func (runner *Runner) ToTarget() remote_target.RemoteTarget {
 	return remote_target.New(
 		utils.GetLocalIP(),
