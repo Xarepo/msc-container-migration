@@ -65,6 +65,13 @@ _required: no, default: 5_
 The length, in seconds, of how long to wait for PING RPCs before considering
 the source to be down.
 
+#### PING_TIMEOUT_SOURCE
+
+_required: no, default: 3_
+
+The length, in seconds, of how long to the source waits for the reply for any
+PING RPC that it sends, before considering the target to be down.
+
 ## Running
 
 ### Example OCI-bundles

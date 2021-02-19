@@ -233,21 +233,48 @@ func (runner *Runner) loopRunning() {
 			})
 		case <-pingTick.C:
 			for _, target := range runner.Targets {
-				log.Trace().Msg("Pinging remote")
+				log.Trace().Str("Target", target.RPCAddr()).Msg("Pinging remote")
 
-				client, err := rpc.DialHTTP("tcp", target.RPCAddr())
-				if err != nil {
-					log.Fatal().Msgf("dialing:%s", err)
-				}
-
-				var reply struct{}
+				var client *rpc.Client
+				var err error
+				var reply bool
 				var args struct{}
-				err = client.Call("RPC.Ping", args, &reply)
-				if err != nil {
+				// false/true in the channel indicates a failed/successful call, but
+				// not necessarily a response.
+				sync := make(chan bool)
+
+				// Call RPC in a go routine in order to implement timeout behavior, as
+				// net/rpc has no support for timeouts.
+				go func() {
+					client, err = rpc.DialHTTP("tcp", target.RPCAddr())
+					if err != nil {
+						log.Fatal().Msgf("dialing:%s", err)
+					}
+					err = client.Call("RPC.Ping", args, &reply)
+					if err != nil {
+						log.Warn().
+							Str("Error", err.Error()).
+							Str("Target", target.RPCAddr()).
+							Msg("Failed to call PING RPC")
+						runner.RemoveTarget(target)
+						sync <- false
+					} else {
+						sync <- true
+					}
+				}()
+				select {
+				case success := <-sync:
+					if success && reply == true {
+						log.Trace().Str("Target", target.RPCAddr()).Msg("PING RECEIVED")
+					}
+				case <-time.After(3 * time.Second): // TODO: Don't hardcode ping timeout
 					log.Warn().
-						Str("Error", err.Error()).
 						Str("Target", target.RPCAddr()).
-						Msg("Failed to call PING RPC")
+						Msg("No ping received from target")
+					runner.RemoveTarget(target)
+					if client != nil {
+						client.Close()
+					}
 				}
 			}
 		case <-done:

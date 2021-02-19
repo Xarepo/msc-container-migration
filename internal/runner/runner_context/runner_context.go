@@ -143,6 +143,22 @@ func (ctx *RunnerContext) AddTarget(target remote_target.RemoteTarget) {
 		Msg("Added target")
 }
 
+// Remove a target from the targets list
+func (ctx *RunnerContext) RemoveTarget(target remote_target.RemoteTarget) {
+	index := -1
+	for i, t := range ctx.Targets {
+		if t.RPCAddr() == target.RPCAddr() {
+			index = i
+		}
+	}
+	if index != -1 {
+		ctx.Targets = append(ctx.Targets[:index], ctx.Targets[index+1:]...)
+		log.Warn().
+			Str("Target", target.RPCAddr()).
+			Msg("Removed target")
+	}
+}
+
 // Return the RPC port of the runner.
 func (ctx *RunnerContext) RPCPort() int {
 	return ctx.rpcPort

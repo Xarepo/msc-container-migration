@@ -30,9 +30,10 @@ func (handler *RPCHandler) Join(
 	return nil
 }
 
-func (handler *RPCHandler) Ping(args *struct{}, reply *struct{}) error {
+func (handler *RPCHandler) Ping(args struct{}, reply *bool) error {
 	log.Debug().Msg("PING received")
 	handler.runner.PingInterrupt <- true
+	*reply = true
 	return nil
 }
 
