@@ -325,7 +325,9 @@ func (runner *Runner) loopJoining() {
 
 		client, err := rpc.DialHTTP("tcp", runner.Source)
 		if err != nil {
-			log.Fatal().Msgf("dialing:%s", err)
+			log.Error().Str("Error", err.Error()).Msg("Failed to dial RPC")
+			runner.SetStatusNoLock(runner_context.Failed)
+			return
 		}
 
 		var reply string
