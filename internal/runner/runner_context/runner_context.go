@@ -5,8 +5,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	. "github.com/Xarepo/msc-container-migration/internal/dump"
 	"github.com/Xarepo/msc-container-migration/internal/env"
-	. "github.com/Xarepo/msc-container-migration/internal/image"
 	. "github.com/Xarepo/msc-container-migration/internal/ipc_listener"
 	"github.com/Xarepo/msc-container-migration/internal/remote_target"
 	. "github.com/Xarepo/msc-container-migration/internal/usock_listener"
@@ -20,10 +20,10 @@ import (
 // by a migration request.
 //
 // Standby:
-// The runner has been started, but is not running, it is waiting to either
-// a) be run and transition into running status or b) be restored from a dumped
-// image by migration request. At this point the runner's loop, IPC-listener
-// and RPC-listener has been started, but not yet the container.
+// The runner has been started, but is not running, it is waiting to either a)
+// be run and transition into running status or b) be restored from a dump by a
+// migration request. At this point the runner's loop, IPC-listener and
+// RPC-listener has been started, but not yet the container.
 //
 // Running:
 // The runner is running. This means the runner has, or is in the process of
@@ -36,7 +36,7 @@ import (
 //
 // Restoring:
 // The runner is in the process of creating and running its container from a
-// dumped image as part of a migration process.
+// dump as part of a migration process.
 // NOTE: The runner should always have this status for EXACTLY one cycle of the
 // runner's loop.
 //
@@ -83,9 +83,8 @@ type RunnerContext struct {
 	ContainerStatus chan int
 	// The path to the OCI-bundle that the runner's container is created from.
 	BundlePath string
-	// The latest checkpoint image that the runner has dumped, i.e. written to
-	// disk.
-	LatestImage *Image
+	// The latest dump that the runner has made, i.e. written to disk.
+	LatestDump *Dump
 	IPCListener
 	rpcPort       int
 	status        RunnerStatus
@@ -95,7 +94,7 @@ type RunnerContext struct {
 	PingInterrupt chan bool
 }
 
-func New(containerId, bundlePath, imagePath string) RunnerContext {
+func New(containerId, bundlePath string) RunnerContext {
 	return RunnerContext{
 		ContainerId:     containerId,
 		ContainerStatus: make(chan int),
@@ -103,7 +102,7 @@ func New(containerId, bundlePath, imagePath string) RunnerContext {
 		IPCListener:     &USockListener{},
 		rpcPort:         env.Getenv().RPC_PORT,
 		status:          Stopped,
-		LatestImage:     nil,
+		LatestDump:      nil,
 		Targets:         []remote_target.RemoteTarget{},
 		Source:          "",
 		PingInterrupt:   make(chan bool),

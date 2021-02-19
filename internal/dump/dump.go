@@ -1,4 +1,4 @@
-package image
+package dump
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 	"github.com/Xarepo/msc-container-migration/internal/env"
 )
 
-// imageType represents the type of the dump
+// dumpType represents the type of the dump
 //
 // preDump:
 // This dump only contains the memory changed since last dump. It is not
@@ -24,42 +24,42 @@ import (
 //
 // checkpoint:
 // This dump is the same as fullDump, but it has been issued manually via an
-// IPC rather than automatically by the system. Note that checkpoint images may
-// have the same number as another fulldump or preDump image.
-type imageType int
+// IPC rather than automatically by the system. Note that checkpoint dumps may
+// have the same number as another fulldump or preDump dump.
+type dumpType int
 
 const (
-	preDump imageType = iota
+	preDump dumpType = iota
 	fullDump
 	checkpoint
 )
 
-type Image struct {
-	_type imageType
+type Dump struct {
+	_type dumpType
 	nr    int
 
 	// Offset from previous dump (full). Will always be zero for full dumps.
 	dumpOffset int
 }
 
-// Construct an image based on a imagePath.
+// Construct a dump based on a dumpPath.
 // Used when restoring containers.
-func Restore(imagePath string) *Image {
+func Restore(dumpPath string) *Dump {
 	re := regexp.MustCompile("[0-9]+")
-	nr, err := strconv.Atoi(re.FindString(imagePath))
+	nr, err := strconv.Atoi(re.FindString(dumpPath))
 	if err != nil {
 		log.Error().Str("Error", err.Error()).Send()
 	}
 
-	return &Image{_type: fullDump, nr: nr, dumpOffset: 0}
+	return &Dump{_type: fullDump, nr: nr, dumpOffset: 0}
 }
 
-// Construct a checkpoint image from another image.
-func (img *Image) Checkpoint() *Image {
-	return &Image{
+// Construct a checkpoint dump from another dump.
+func (dump *Dump) Checkpoint() *Dump {
+	return &Dump{
 		_type:      checkpoint,
 		dumpOffset: 0,
-		nr:         img.nr + 1,
+		nr:         dump.nr + 1,
 	}
 }
 
@@ -73,7 +73,7 @@ func (img *Image) Checkpoint() *Image {
 // 2) It has the highest number in its name of all full dumps (directories
 // prefixed with 'd'), i.e. for all directories of the form "dX", its X is
 // maximal.
-func Recover() *Image {
+func Recover() *Dump {
 	entries, err := ioutil.ReadDir(env.Getenv().DUMP_PATH)
 	if err != nil {
 		log.Error().
@@ -96,18 +96,18 @@ func Recover() *Image {
 	log.Debug().
 		Str("Dump", latestDump).
 		Msg("Latest possible recovery dump determined")
-	return &Image{
+	return &Dump{
 		_type: fullDump, nr: int(latestDumpNum), dumpOffset: 0,
 	}
 }
 
-func (img Image) Path() string {
-	return fmt.Sprintf("%s/%s", env.Getenv().DUMP_PATH, img.Base())
+func (dump Dump) Path() string {
+	return fmt.Sprintf("%s/%s", env.Getenv().DUMP_PATH, dump.Base())
 }
 
-func (img Image) Base() string {
+func (dump Dump) Base() string {
 	prefix := '_'
-	switch img._type {
+	switch dump._type {
 	case preDump:
 		prefix = 'p'
 	case fullDump:
@@ -115,50 +115,50 @@ func (img Image) Base() string {
 	case checkpoint:
 		prefix = 'c'
 	default:
-		log.Panic().Int("Type", int(img._type)).Msg("Image has invalid type")
+		log.Panic().Int("Type", int(dump._type)).Msg("Dump has invalid type")
 	}
-	return fmt.Sprintf("%c%d", prefix, img.nr)
+	return fmt.Sprintf("%c%d", prefix, dump.nr)
 }
 
-// Return whether of not the image is a predump
-func (img Image) PreDump() bool {
-	return img._type == preDump
+// Return whether of not the dump is a predump
+func (dump Dump) PreDump() bool {
+	return dump._type == preDump
 }
 
-// Return the next image to dump based on this image and the dump frequency.
-func (img Image) NextImage(dumpFreq int) *Image {
+// Return the next dump to dump based on this dump and the dump frequency.
+func (dump Dump) NextDump(dumpFreq int) *Dump {
 	t := fullDump
-	if img.dumpOffset < dumpFreq-1 {
+	if dump.dumpOffset < dumpFreq-1 {
 		t = preDump
 	}
-	return &Image{
+	return &Dump{
 		_type:      t,
-		nr:         img.nr + 1,
-		dumpOffset: (img.nr + 1) % dumpFreq,
+		nr:         dump.nr + 1,
+		dumpOffset: (dump.nr + 1) % dumpFreq,
 	}
 }
 
-// Return the next pre-dump image to dump based on this image.
-func (img Image) NextPreDumpImage() *Image {
-	return &Image{
+// Return the next pre-dump based on this dump.
+func (dump Dump) NextPreDump() *Dump {
+	return &Dump{
 		_type:      preDump,
-		nr:         img.nr + 1,
-		dumpOffset: img.dumpOffset + 1,
+		nr:         dump.nr + 1,
+		dumpOffset: dump.dumpOffset + 1,
 	}
 }
 
-// Return the next (full) dump image to dump based on this image.
-func (img Image) NextDumpImage() *Image {
-	return &Image{
+// Return the next full dump based on this dump.
+func (dump Dump) NextFullDump() *Dump {
+	return &Dump{
 		_type:      fullDump,
-		nr:         img.nr + 1,
+		nr:         dump.nr + 1,
 		dumpOffset: 0,
 	}
 }
 
-// Return the first of all images, across all hosts.
-func FirstImage() *Image {
-	return &Image{
+// Return the first of all dumps, across all hosts.
+func FirstDump() *Dump {
+	return &Dump{
 		_type:      fullDump,
 		nr:         0,
 		dumpOffset: 0,

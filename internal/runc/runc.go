@@ -29,15 +29,15 @@ func Run(id, bundle string) (int, error) {
 }
 
 // PreDump the container, leaving it running.
-func PreDump(id, imagePath, parentPath string) {
+func PreDump(id, dumpPath, parentPath string) {
 	log.Debug().
 		Str("ContainerId", id).
-		Str("ImagePath", imagePath).
+		Str("DumpPath", dumpPath).
 		Str("ParentPath", parentPath).
 		Msg("Pre-dumping container")
 
 	r := &_runc.Runc{}
-	opts := _runc.CheckpointOpts{ImagePath: imagePath, AllowTerminal: true}
+	opts := _runc.CheckpointOpts{ImagePath: dumpPath, AllowTerminal: true}
 	if parentPath != "" {
 		opts.ParentPath = parentPath
 	}
@@ -48,16 +48,16 @@ func PreDump(id, imagePath, parentPath string) {
 }
 
 // Dumps the entire container state.
-func Dump(id, imagePath, parentPath string, leaveRunning bool) {
+func Dump(id, dumpPath, parentPath string, leaveRunning bool) {
 	log.Debug().
 		Str("ContainerId", id).
-		Str("ImagePath", imagePath).
+		Str("DumpPath", dumpPath).
 		Str("ParentPath", parentPath).
 		Msg("Dumping container")
 
 	r := &_runc.Runc{}
 	opts := _runc.CheckpointOpts{
-		ImagePath:     imagePath,
+		ImagePath:     dumpPath,
 		AllowTerminal: true,
 		AllowOpenTCP:  env.Getenv().CRIU_TCP_ESTABLISHED,
 	}
@@ -76,10 +76,10 @@ func Dump(id, imagePath, parentPath string, leaveRunning bool) {
 	}
 }
 
-func Restore(id, imagePath, bundle string) (int, error) {
+func Restore(id, dumpPath, bundle string) (int, error) {
 	log.Debug().
 		Str("ContainerId", id).
-		Str("ImagePath", imagePath).
+		Str("DumpPath", dumpPath).
 		Str("BundlePath", bundle).
 		Msg("Restoring container")
 
@@ -92,7 +92,7 @@ func Restore(id, imagePath, bundle string) (int, error) {
 	opts := &_runc.RestoreOpts{
 		IO: io,
 		CheckpointOpts: _runc.CheckpointOpts{
-			ImagePath:    imagePath,
+			ImagePath:    dumpPath,
 			AllowOpenTCP: env.Getenv().CRIU_TCP_ESTABLISHED,
 		},
 	}

@@ -13,7 +13,7 @@ type Join struct {
 
 func (cmd Join) Execute() error {
 	// Prepare new runner by creating it with empty values
-	r := runner.New("", ".", "")
+	r := runner.New("", ".")
 	r.Source = cmd.Remote
 
 	r.Start()

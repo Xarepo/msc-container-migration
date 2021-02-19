@@ -21,7 +21,7 @@ func (cp Checkpoint) Execute(ctx *runner_context.RunnerContext) {
 	log.Trace().
 		Msg("Executing checkpoint IPC")
 	// Take lock so that no other routine can dump at the same time
-	checkpointImg := ctx.LatestImage.Checkpoint()
+	checkpointImg := ctx.LatestDump.Checkpoint()
 	ctx.WithLock(func() {
 		runc.Dump(ctx.ContainerId, checkpointImg.Path(), "", true)
 	})

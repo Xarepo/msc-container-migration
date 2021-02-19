@@ -3,7 +3,7 @@ package runner
 import (
 	"github.com/rs/zerolog/log"
 
-	"github.com/Xarepo/msc-container-migration/internal/image"
+	"github.com/Xarepo/msc-container-migration/internal/dump"
 	"github.com/Xarepo/msc-container-migration/internal/remote_target"
 	"github.com/Xarepo/msc-container-migration/internal/runner/runner_context"
 )
@@ -37,15 +37,15 @@ func (handler *RPCHandler) Ping(args *struct{}, reply *struct{}) error {
 }
 
 type MigrateArgs struct {
-	ImagePath, ContainerId, BundlePath string
+	DumpPath, ContainerId, BundlePath string
 }
 
 func (handler *RPCHandler) Migrate(args *MigrateArgs, reply *struct{}) error {
 	log.Debug().Msg("Migration request received")
-	img := image.Restore(args.ImagePath)
+	dump := dump.Restore(args.DumpPath)
 	handler.runner.ContainerId = args.ContainerId
 	handler.runner.BundlePath = args.BundlePath
-	handler.runner.LatestImage = img
+	handler.runner.LatestDump = dump
 	handler.runner.SetStatus(runner_context.Restoring)
 	return nil
 }

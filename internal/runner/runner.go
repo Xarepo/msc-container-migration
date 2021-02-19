@@ -12,8 +12,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/Xarepo/msc-container-migration/internal/dump"
 	"github.com/Xarepo/msc-container-migration/internal/env"
-	"github.com/Xarepo/msc-container-migration/internal/image"
 	"github.com/Xarepo/msc-container-migration/internal/ipc"
 	"github.com/Xarepo/msc-container-migration/internal/remote_target"
 	"github.com/Xarepo/msc-container-migration/internal/runc"
@@ -32,9 +32,9 @@ type Runner struct {
 //
 // @param containerId: The id of the container to create.
 // @param bundlePath: The path to the OCI-bundle used to create the container.
-func New(containerId, bundlePath, imagePath string) *Runner {
+func New(containerId, bundlePath string) *Runner {
 	runner := Runner{
-		RunnerContext: runner_context.New(containerId, bundlePath, imagePath),
+		RunnerContext: runner_context.New(containerId, bundlePath),
 	}
 	runner.RPCHandler = RPCHandler{runner: &runner}
 	return &runner
@@ -124,7 +124,7 @@ func (runner *Runner) runContainer() {
 func (runner *Runner) restoreContainer() {
 	status, err := runc.Restore(
 		runner.ContainerId,
-		runner.LatestImage.Path(),
+		runner.LatestDump.Path(),
 		runner.BundlePath,
 	)
 	if err != nil {
@@ -201,35 +201,35 @@ func (runner *Runner) loopRunning() {
 		case <-dumpTick.C:
 			// Lock dumping stage as to avoid conflicted states
 			runner.WithLock(func() {
-				nextImg := image.FirstImage()
+				nextDump := dump.FirstDump()
 				parentPath := ""
-				if runner.LatestImage != nil {
-					nextImg = runner.LatestImage.NextImage(dumpFreq)
+				if runner.LatestDump != nil {
+					nextDump = runner.LatestDump.NextDump(dumpFreq)
 					// Parentpath is relative to the parent directory of the image path
 					// so only the directory name (not the full path) should be used
-					parentPath = runner.LatestImage.Base()
+					parentPath = runner.LatestDump.Base()
 				}
 
-				if nextImg.PreDump() {
+				if nextDump.PreDump() {
 					runc.PreDump(
 						runner.ContainerId,
-						nextImg.Path(),
+						nextDump.Path(),
 						parentPath,
 					)
 				} else {
 					runc.Dump(
 						runner.ContainerId,
-						nextImg.Path(),
+						nextDump.Path(),
 						parentPath,
 						true,
 					)
 				}
 
 				for _, target := range runner.Targets {
-					sftp.CopyToRemote(nextImg.Path(), &target)
+					sftp.CopyToRemote(nextDump.Path(), &target)
 				}
 
-				runner.LatestImage = nextImg
+				runner.LatestDump = nextDump
 			})
 		case <-pingTick.C:
 			for _, target := range runner.Targets {
@@ -263,24 +263,24 @@ func (runner *Runner) loopMigrating() {
 			Msg("Migrating container")
 
 		// Pre-dump
-		nextImg := runner.LatestImage.NextPreDumpImage()
+		nextDump := runner.LatestDump.NextPreDump()
 		runc.PreDump(
 			runner.ContainerId,
-			nextImg.Path(),
-			runner.LatestImage.Base(),
+			nextDump.Path(),
+			runner.LatestDump.Base(),
 		)
-		sftp.CopyToRemote(nextImg.Path(), &runner.Targets[0])
-		runner.LatestImage = nextImg
+		sftp.CopyToRemote(nextDump.Path(), &runner.Targets[0])
+		runner.LatestDump = nextDump
 
 		// Dump
-		nextImg = nextImg.NextDumpImage()
+		nextDump = nextDump.NextFullDump()
 		runc.Dump(
 			runner.ContainerId,
-			nextImg.Path(),
-			runner.LatestImage.Base(),
+			nextDump.Path(),
+			runner.LatestDump.Base(),
 			false)
-		sftp.CopyToRemote(nextImg.Path(), &runner.Targets[0])
-		runner.LatestImage = nextImg
+		sftp.CopyToRemote(nextDump.Path(), &runner.Targets[0])
+		runner.LatestDump = nextDump
 
 		client, err := rpc.DialHTTP("tcp", runner.Targets[0].RPCAddr())
 		if err != nil {
@@ -289,7 +289,7 @@ func (runner *Runner) loopMigrating() {
 
 		var reply struct{}
 		args := MigrateArgs{
-			ImagePath:   runner.LatestImage.Base(),
+			DumpPath:    runner.LatestDump.Base(),
 			ContainerId: runner.ContainerId,
 			BundlePath:  runner.BundlePath,
 		}
@@ -310,7 +310,7 @@ func (runner *Runner) loopRestoring() {
 		go runner.restoreContainer()
 		log.Info().
 			Str("ContainerId", runner.ContainerId).
-			Str("Image", runner.LatestImage.Path()).
+			Str("Dump", runner.LatestDump.Path()).
 			Str("Bundle", runner.BundlePath).
 			Msg("Container restored")
 		runner.SetStatusNoLock(runner_context.Running)
@@ -371,10 +371,10 @@ func (runner *Runner) loopStandby() {
 func (runner *Runner) loopRecovery() {
 	log.Trace().Msg("Recovering")
 
-	runner.LatestImage = image.Recover()
+	runner.LatestDump = dump.Recover()
 	runner.Source = ""
 
-	log.Info().Str("Dump", runner.LatestImage.Path()).Msg("Recovering from dump")
+	log.Info().Str("Dump", runner.LatestDump.Path()).Msg("Recovering from dump")
 	runner.RestoreContainer()
 }
 

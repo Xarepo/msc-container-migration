@@ -24,7 +24,7 @@ func (cmd Run) Execute() error {
 		Str("ContainerId", cmd.ContainerId).
 		Msg("Executing run command")
 
-	runner := runner.New(cmd.ContainerId, cmd.BundlePath, "")
+	runner := runner.New(cmd.ContainerId, cmd.BundlePath)
 
 	runner.Start()
 	runner.StartContainer()
