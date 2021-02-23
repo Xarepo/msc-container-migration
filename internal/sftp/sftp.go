@@ -26,8 +26,8 @@ func isSymlink(fileName string) bool {
 }
 
 func CopyToRemote(dumpName string, target *remote_target.RemoteTarget) {
-	user := env.Getenv().SCP_USER
-	password := env.Getenv().SCP_PASSWORD
+	user := env.Getenv().SSH_USER
+	password := env.Getenv().SSH_PASSWORD
 	log.Debug().
 		Str("User", user).
 		Str("Password", password).

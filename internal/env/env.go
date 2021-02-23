@@ -15,7 +15,7 @@ import (
 type _env struct {
 	LOG_LEVEL                                        string
 	DUMP_PATH                                        string
-	SCP_USER, SCP_PASSWORD                           string
+	SSH_USER, SSH_PASSWORD                           string
 	RPC_PORT                                         int
 	CRIU_TCP_ESTABLISHED                             bool
 	DUMP_INTERVAL                                    int
@@ -46,11 +46,11 @@ func Init() error {
 	env.LOG_LEVEL = getString("LOG_LEVEL", _DEFAULT_LOG_LEVEL)
 	env.DUMP_PATH = getString("DUMP_PATH", _DEFAULT_DUMP_PATH)
 
-	env.SCP_USER, err = getStringRequired("SCP_USER")
+	env.SSH_USER, err = getStringRequired("SSH_USER")
 	if err != nil {
 		return err
 	}
-	env.SCP_PASSWORD, err = getStringRequired("SCP_PASSWORD")
+	env.SSH_PASSWORD, err = getStringRequired("SSH_PASSWORD")
 	if err != nil {
 		return err
 	}

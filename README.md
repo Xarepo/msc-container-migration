@@ -2,7 +2,7 @@
 
 #### LOG_LEVEL
 
-_required: No, default: info_
+_required: No, default: `info`_
 
 The log level to use. Any message below the specified level will not be logged.
 See [zerolog documentation](https://github.com/rs/zerolog#leveled-logging) for
@@ -10,32 +10,45 @@ available levels.
 
 #### RPC_IP
 
-_required: No, default: localhost_
+_required: No, default: `localhost`_
 
 The IP address to listen for RPCs on.
 
 #### RPC_PORT
 
-_required: No, default: 1234_
+_required: No, default: `1234`_
 
 The port to listen for RPCs on.
 
 #### DUMP_PATH
 
-_required: yes_
+_required: no, default: `/dumps`_
 
 The path to the folder where dumps will be stored, either by direct dumps or
 from file transfers from other hosts.
 
 #### FILE_TRANSFER_PORT
 
-_required: no, default: 22_
+_required: no, default: `22`_
 
 The port from which to receive file transfers.
 
+#### SSH_USER
+
+_required: yes_
+
+The name of the user to use when authenticating with ssh during file transfer.
+
+#### SSH_USER
+
+_required: yes_
+
+The password of the user to use when authenticating with ssh during file
+transfer.
+
 #### CRIU_TCP_ESTABLISHED
 
-_required: no, default: false_
+_required: no, default: `false`_
 
 Whether or not to pass the `AllowOpenTCP` option to go-runc which in turn
 passes it as the `--tcp-established` option to CRIU while
@@ -47,27 +60,27 @@ formats.
 
 #### DUMP_INTERVAL
 
-_required: no, default: 5_
+_required: no, default: `5`_
 
 The length, in seconds, of the intervals between performing dumps.
 
 #### PING_INTERVAL
 
-_required: no, default: 1_
+_required: no, default: `1`_
 
 The length, in seconds, of the intervals between sending pings to nodes in the
 cluster.
 
 #### PING_TIMEOUT
 
-_required: no, default: 5_
+_required: no, default: `5`_
 
 The length, in seconds, of how long to wait for PING RPCs before considering
 the source to be down.
 
 #### PING_TIMEOUT_SOURCE
 
-_required: no, default: 3_
+_required: no, default: `3`_
 
 The length, in seconds, of how long to the source waits for the reply for any
 PING RPC that it sends, before considering the target to be down.
