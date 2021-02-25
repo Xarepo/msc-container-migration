@@ -211,14 +211,15 @@ information.
 The following example runs a script inside a container that tells the system to
 checkpoint said container. [socat](https://linux.die.net/man/1/socat) is used
 to write to the unix socket.
+[alpine/socat](https://hub.docker.com/r/alpine/socat) can be used as a image.
 
 ```shell
 echo PID: $$
 
 echo sleeping...
 sleep 4
-echo checkpoiting
+echo checkpointing
 printf "CHECKPOINT" | socat - UNIX-SENDTO:/tmp/msc.sock
 sleep 4
-done sleeping!
+echo done sleeping!
 ```
