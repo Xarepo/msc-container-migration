@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 DUMP_DIR=/dumps
 DUMPS=$(ls -l $DUMP_DIR | tail -n +2 | awk '{print $9}')
 FULL_DUMPS=$(echo "$DUMPS" | sed -n '/d[0-9]\+/p')
@@ -18,19 +18,25 @@ function sum_dumps() {
 }
 
 SUM_PRE=$(sum_dumps "$PRE_DUMPS")
-NUM_PRE=$(echo "$PRE_DUMPS" | wc -l)
-AVG_PRE=$((SUM_PRE/NUM_PRE))
+NUM_PRE=$([ -n "$PRE_DUMPS" ] && echo "$PRE_DUMPS" | wc -l || echo 0)
+AVG_PRE=$([ $NUM_PRE -ne 0 ] && echo $((SUM_PRE/NUM_PRE)) || echo 0)
 
 SUM_FULL=$(sum_dumps "$FULL_DUMPS")
-NUM_FULL=$(echo "$FULL_DUMPS" | wc -l)
-AVG_FULL=$((SUM_FULL/NUM_FULL))
+NUM_FULL=$([ -n "$FULL_DUMPS" ] && echo "$FULL_DUMPS" | wc -l || echo 0)
+AVG_FULL=$([ $NUM_FULL -ne 0 ] && echo $((SUM_FULL/NUM_FULL)) || echo 0)
 
-echo SUM_PRE=$SUM_PRE
+
+function present_bytes(){
+	bytes=$1
+	echo "$bytes"B, $(numfmt --to=iec-i --suffix=B $bytes)
+}
+
+echo SUM_PRE=$(present_bytes $SUM_PRE)
+echo AVG_PRE=$(present_bytes $AVG_PRE)
 echo NUM_PRE=$NUM_PRE
-echo AVG_PRE=$AVG_PRE
 
 echo
 
-echo SUM_FULL=$SUM_FULL
+echo SUM_FULL=$(present_bytes $SUM_FULL)
+echo AVG_FULL=$(present_bytes $AVG_FULL)
 echo NUM_FULL=$NUM_FULL
-echo AVG_FULL=$AVG_FULL
