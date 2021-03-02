@@ -64,6 +64,13 @@ _required: no, default: `5`_
 
 The length, in seconds, of the intervals between performing dumps.
 
+#### FULLDUMP_FREQ
+
+_required: no, default: `3`_
+
+The frequency/ratio of how often to do full dumps, i.e. if set to `n` then
+every `n`th dump will be a fulldump (and the other predumps).
+
 #### PING_INTERVAL
 
 _required: no, default: `1`_

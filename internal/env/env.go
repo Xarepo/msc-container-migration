@@ -18,7 +18,7 @@ type _env struct {
 	SSH_USER, SSH_PASSWORD                           string
 	RPC_PORT                                         int
 	CRIU_TCP_ESTABLISHED                             bool
-	DUMP_INTERVAL                                    int
+	DUMP_INTERVAL, FULLDUMP_FREQ                     int
 	PING_INTERVAL, PING_TIMEOUT, PING_TIMEOUT_SOURCE int
 }
 
@@ -34,6 +34,7 @@ const (
 	_DEFAULT_PING_TIMEOUT         = 5
 	_DEFAULT_CRIU_TCP_ESTABLISHED = false
 	_DEFAULT_PING_TIMEOUT_SOURCE  = 3
+	_DEFAULT_FULLDUMP_FREQ        = 3
 )
 
 // Initialize the environment.
@@ -61,6 +62,10 @@ func Init() error {
 	}
 
 	env.DUMP_INTERVAL, err = getInt("DUMP_INTERVAL", _DEFAULT_DUMP_INTERVAL)
+	if err != nil {
+		return err
+	}
+	env.FULLDUMP_FREQ, err = getInt("FULLDUMP_FREQ", _DEFAULT_FULLDUMP_FREQ)
 	if err != nil {
 		return err
 	}

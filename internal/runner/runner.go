@@ -183,7 +183,7 @@ func (runner *Runner) Loop() {
 }
 
 func (runner *Runner) loopRunning() {
-	dumpFreq := 3
+	dumpFreq := env.Getenv().FULLDUMP_FREQ
 	dumpTick := time.NewTicker(
 		time.Duration(env.Getenv().DUMP_INTERVAL) * time.Second,
 	)
