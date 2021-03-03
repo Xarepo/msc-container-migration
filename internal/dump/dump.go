@@ -165,6 +165,7 @@ func FirstDump() *Dump {
 	}
 }
 
+// Return the dump represented as a parent path to another dump.
 func (dump Dump) ParentPath() string {
 	return fmt.Sprintf("../%s", dump.Base())
 }

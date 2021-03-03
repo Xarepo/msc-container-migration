@@ -83,11 +83,21 @@ func CopyToRemote(node *chain_node.ChainNode, target *remote_target.RemoteTarget
 	for _, file := range files {
 		log.Trace().Str("File", file).Msg("Transferring file")
 
-		// Skip any symlinks.
+		// Copy parent symlinks.
 		// The only occurring symlinks in the dump directories should be the symlink
-		// to the parent directory, but this should not be necessary to transfer.
+		// to the parent directory.
 		if isSymlink(file) {
-			log.Trace().Str("File", file).Msg("File is symlink, skipping...")
+			oldName := node.Dump().ParentPath()
+			log.Trace().
+				Str("OldName", oldName).
+				Str("NewName", file).
+				Msg("Creating parent symlink")
+			err := sftpClient.Symlink(oldName, file)
+			if err != nil {
+				log.Error().
+					Str("Error", err.Error()).
+					Msg("Failed to create parent symlink")
+			}
 			continue
 		}
 
