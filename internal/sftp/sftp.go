@@ -12,6 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/ssh"
 
+	chain_node "github.com/Xarepo/msc-container-migration/internal/chain/node"
 	"github.com/Xarepo/msc-container-migration/internal/env"
 	"github.com/Xarepo/msc-container-migration/internal/remote_target"
 )
@@ -25,14 +26,14 @@ func isSymlink(fileName string) bool {
 	return fileInfo.Mode()&os.ModeSymlink != 0
 }
 
-func CopyToRemote(dumpName string, target *remote_target.RemoteTarget) {
+func CopyToRemote(node *chain_node.ChainNode, target *remote_target.RemoteTarget) {
 	user := env.Getenv().SSH_USER
 	password := env.Getenv().SSH_PASSWORD
 	log.Debug().
 		Str("User", user).
 		Str("Password", password).
 		Str("RemotePath", target.DumpPath).
-		Str("Dump Name", dumpName).
+		Str("Dump Name", node.Dump().Base()).
 		Str("Target", target.Host).
 		Msg("Copying to remote")
 
@@ -62,7 +63,7 @@ func CopyToRemote(dumpName string, target *remote_target.RemoteTarget) {
 	}
 	defer sftpClient.Close()
 
-	destDir := fmt.Sprintf("%s/%s", target.DumpPath, filepath.Base(dumpName))
+	destDir := fmt.Sprintf("%s/%s", target.DumpPath, node.Dump().Base())
 	log.Trace().Str("DestDir", destDir).Msg("Creating dump directory on remote")
 	err = sftpClient.MkdirAll(destDir)
 	if err != nil {
@@ -74,7 +75,7 @@ func CopyToRemote(dumpName string, target *remote_target.RemoteTarget) {
 	}
 
 	// Collect files
-	files, err := filepath.Glob(fmt.Sprintf("%s/*", dumpName))
+	files, err := filepath.Glob(fmt.Sprintf("%s/*", node.Dump().Path()))
 	if err != nil {
 		log.Error().Msg("Failed to collect files for transfer")
 	}
