@@ -21,12 +21,10 @@ func (cp Checkpoint) Execute(ctx *runner_context.RunnerContext) {
 	log.Trace().
 		Msg("Executing checkpoint IPC")
 	// Take lock so that no other routine can dump at the same time
-	checkpointImg := ctx.LatestDump.Checkpoint()
 	ctx.WithLock(func() {
+		checkpointImg := ctx.Chain.Latest().Dump().Checkpoint()
 		runc.Dump(ctx.ContainerId, checkpointImg.Path(), "", true)
 	})
-	log.Trace().
-		Msg("DONE EXECUTING CHECKPOINT")
 }
 
 func (cp *Checkpoint) ParseFlags(flags []string) error {

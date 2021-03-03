@@ -64,12 +64,14 @@ _required: no, default: `5`_
 
 The length, in seconds, of the intervals between performing dumps.
 
-#### FULLDUMP_FREQ
+#### CHAIN_LENGTH
 
 _required: no, default: `3`_
 
-The frequency/ratio of how often to do full dumps, i.e. if set to `n` then
-every `n`th dump will be a fulldump (and the other predumps).
+The length of each dump chain. The last dump of each chain will a full dump
+from which the process can be recovered. If `DUMP_INTERVAL` is set to `m`
+seconds and `CHAIN_LENGTH` is set to `n` then every `m*n`th second a full dump
+will be made.
 
 #### PING_INTERVAL
 

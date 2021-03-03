@@ -12,6 +12,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/Xarepo/msc-container-migration/internal/chain"
 	"github.com/Xarepo/msc-container-migration/internal/dump"
 	"github.com/Xarepo/msc-container-migration/internal/env"
 	"github.com/Xarepo/msc-container-migration/internal/ipc"
@@ -19,7 +20,6 @@ import (
 	"github.com/Xarepo/msc-container-migration/internal/runc"
 	"github.com/Xarepo/msc-container-migration/internal/runner/runner_context"
 	. "github.com/Xarepo/msc-container-migration/internal/runner/runner_context"
-	"github.com/Xarepo/msc-container-migration/internal/sftp"
 	"github.com/Xarepo/msc-container-migration/internal/utils"
 )
 
@@ -89,7 +89,8 @@ func (runner *Runner) StartContainer() {
 
 // Restore the container and set the status to running
 func (runner *Runner) RestoreContainer() {
-	go runner.restoreContainer()
+	go runner.restoreContainer(runner.Chain.Latest().Dump().Path())
+	runner.NewChain()
 	runner.SetStatus(runner_context.Running)
 	log.Debug().Msg("Runner restored")
 }
@@ -123,12 +124,8 @@ func (runner *Runner) runContainer() {
 	runner.ContainerStatus <- status
 }
 
-func (runner *Runner) restoreContainer() {
-	status, err := runc.Restore(
-		runner.ContainerId,
-		runner.LatestDump.Path(),
-		runner.BundlePath,
-	)
+func (runner *Runner) restoreContainer(dumpPath string) {
+	status, err := runc.Restore(runner.ContainerId, dumpPath, runner.BundlePath)
 	if err != nil {
 		if status == 137 {
 			log.Warn().Msg("Container exited with status 137 (SIGKILL), assuming it was checkpointed...")
@@ -183,7 +180,6 @@ func (runner *Runner) Loop() {
 }
 
 func (runner *Runner) loopRunning() {
-	dumpFreq := env.Getenv().FULLDUMP_FREQ
 	dumpTick := time.NewTicker(
 		time.Duration(env.Getenv().DUMP_INTERVAL) * time.Second,
 	)
@@ -201,13 +197,31 @@ func (runner *Runner) loopRunning() {
 		case <-dumpTick.C:
 			// Lock dumping stage as to avoid conflicted states
 			runner.WithLock(func() {
-				nextDump := dump.FirstDump()
+				// There are 3 cases for dumps here
+				// 1) There is no previous chain and the current chain is empty, in
+				// which case the system should be recently started and have never been
+				// dumped (via either regular dumps or dumps taken while migrating).
+				// The next dump should be the first of all dumps and there is no
+				// parent path (empty).
+				// 2) The current chain is not empty.
+				// In which case the latest dump should be used as the basis for the
+				// next dump and the parent path.
+				// 3) The current chain is empty but there is a previous chain. This
+				// means the system is either in the process of migrating (in which
+				// case the restore-dump is the latest in the previous chain) or it has
+				// finished a chain but not yet performed a dump using the new chain.
+				// The next dump should be based on the latest dump of the previous
+				// chain and the parent path should be empty (as to perform a "full"
+				// pre-dump).
+				nextDump := dump.FirstDump() // 1)
 				parentPath := ""
-				if runner.LatestDump != nil {
-					nextDump = runner.LatestDump.NextDump(dumpFreq)
-					// Parentpath is relative to the parent directory of the image path
-					// so only the directory name (not the full path) should be used
-					parentPath = runner.LatestDump.Base()
+				if runner.Chain.Latest() != nil { // 2)
+					nextDump = runner.Chain.Latest().Dump().NextDump(runner.Chain.Length())
+					parentPath = runner.Chain.Latest().Dump().ParentPath()
+				} else if runner.PrevChain != nil && // 3)
+					runner.PrevChain.Latest() != nil {
+					nextDump = runner.PrevChain.Latest().Dump().NextChainDump()
+					parentPath = ""
 				}
 
 				if nextDump.PreDump() {
@@ -225,11 +239,14 @@ func (runner *Runner) loopRunning() {
 					)
 				}
 
+				runner.Chain.Push(*nextDump)
 				for _, target := range runner.Targets {
-					sftp.CopyToRemote(nextDump.Path(), &target)
+					runner.Chain.Sync(&target)
 				}
 
-				runner.LatestDump = nextDump
+				if !nextDump.PreDump() {
+					runner.NewChain()
+				}
 			})
 		case <-pingTick.C:
 			for _, target := range runner.Targets {
@@ -290,24 +307,34 @@ func (runner *Runner) loopMigrating() {
 			Msg("Migrating container")
 
 		// Pre-dump
-		nextDump := runner.LatestDump.NextPreDump()
+		nextDump := dump.FirstDump()
+		parentPath := ""
+		// Either of these cases should always be true unless a migration is
+		// requested before the first ever dump.
+		if runner.Chain.Latest() != nil {
+			nextDump = runner.Chain.Latest().Dump().NextPreDump()
+			parentPath = runner.Chain.Latest().Dump().ParentPath()
+		} else if runner.PrevChain != nil && runner.PrevChain.Latest() != nil {
+			nextDump = runner.PrevChain.Latest().Dump().NextChainDump()
+			parentPath = ""
+		}
+		runner.Chain.Push(*nextDump)
 		runc.PreDump(
 			runner.ContainerId,
 			nextDump.Path(),
-			runner.LatestDump.Base(),
+			parentPath,
 		)
-		sftp.CopyToRemote(nextDump.Path(), &runner.Targets[0])
-		runner.LatestDump = nextDump
+		runner.Chain.Sync(&runner.Targets[0])
 
 		// Dump
 		nextDump = nextDump.NextFullDump()
+		runner.Chain.Push(*nextDump)
 		runc.Dump(
 			runner.ContainerId,
 			nextDump.Path(),
-			runner.LatestDump.Base(),
+			runner.Chain.Latest().Dump().ParentPath(),
 			false)
-		sftp.CopyToRemote(nextDump.Path(), &runner.Targets[0])
-		runner.LatestDump = nextDump
+		runner.Chain.Sync(&runner.Targets[0])
 
 		client, err := rpc.DialHTTP("tcp", runner.Targets[0].RPCAddr())
 		if err != nil {
@@ -316,7 +343,7 @@ func (runner *Runner) loopMigrating() {
 
 		var reply struct{}
 		args := MigrateArgs{
-			DumpPath:    runner.LatestDump.Base(),
+			DumpNames:   runner.Chain.GetNames(),
 			ContainerId: runner.ContainerId,
 			BundlePath:  runner.BundlePath,
 		}
@@ -334,12 +361,13 @@ func (runner *Runner) loopMigrating() {
 func (runner *Runner) loopRestoring() {
 	runner.WithLock(func() {
 		log.Trace().Msg("Restoring container")
-		go runner.restoreContainer()
+		go runner.restoreContainer(runner.Chain.Latest().Dump().Path())
 		log.Info().
 			Str("ContainerId", runner.ContainerId).
-			Str("Dump", runner.LatestDump.Path()).
+			Str("Dump", runner.Chain.Latest().Dump().Path()).
 			Str("Bundle", runner.BundlePath).
 			Msg("Container restored")
+		runner.NewChain()
 		runner.SetStatusNoLock(runner_context.Running)
 	})
 }
@@ -400,10 +428,32 @@ func (runner *Runner) loopStandby() {
 func (runner *Runner) loopRecovery() {
 	log.Trace().Msg("Recovering")
 
-	runner.LatestDump = dump.Recover()
+	latestDump, err := dump.Recover()
+	if err != nil {
+		log.Error().
+			Str("Error", err.Error()).
+			Msg("Failed to recover dump directory")
+		runner.SetStatus(runner_context.Failed)
+		return
+	}
+
+	chain, err := chain.ReconstructChain(latestDump.Path())
+	if err != nil {
+		log.Error().Str("Error", err.Error()).Msg("Failed to reconstruct dump chain")
+		runner.SetStatus(runner_context.Failed)
+		return
+	}
+	log.Debug().Strs("Chain", chain).Msg("Chain to restore from determined")
+	for _, name := range chain {
+		d := dump.FromString(name)
+		runner.Chain.Push(*d)
+	}
+
 	runner.Source = ""
 
-	log.Info().Str("Dump", runner.LatestDump.Path()).Msg("Recovering from dump")
+	log.Info().
+		Str("Dump", runner.Chain.Latest().Dump().Path()).
+		Msg("Recovering from dump")
 	runner.RestoreContainer()
 }
 

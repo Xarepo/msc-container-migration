@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
 	"github.com/Xarepo/msc-container-migration/internal/env"
@@ -37,30 +38,33 @@ const (
 type Dump struct {
 	_type dumpType
 	nr    int
-
-	// Offset from previous dump (full). Will always be zero for full dumps.
-	dumpOffset int
 }
 
-// Construct a dump based on a dumpPath.
-// Used when restoring containers.
-func Restore(dumpPath string) *Dump {
-	re := regexp.MustCompile("[0-9]+")
-	nr, err := strconv.Atoi(re.FindString(dumpPath))
+// Construct a dump based on a dumpName.
+func FromString(dumpName string) *Dump {
+	re_nr := regexp.MustCompile("[0-9]+")
+	re_type := regexp.MustCompile("[a-z]+")
+	nr, err := strconv.Atoi(re_nr.FindString(dumpName))
+	_type := re_type.FindString(dumpName)
 	if err != nil {
 		log.Error().Str("Error", err.Error()).Send()
 	}
+	var _dumpType dumpType = -1
+	switch _type {
+	case "p":
+		_dumpType = preDump
+	case "d":
+		_dumpType = fullDump
+	default:
+		log.Panic().Str("DumpName", dumpName).Msg("Failed to reconstruct dump")
+	}
 
-	return &Dump{_type: fullDump, nr: nr, dumpOffset: 0}
+	return &Dump{_type: _dumpType, nr: nr}
 }
 
 // Construct a checkpoint dump from another dump.
 func (dump *Dump) Checkpoint() *Dump {
-	return &Dump{
-		_type:      checkpoint,
-		dumpOffset: 0,
-		nr:         dump.nr + 1,
-	}
+	return &Dump{_type: checkpoint, nr: dump.nr + 1}
 }
 
 // Retrieve the latest dump possible to recover from, i.e. the last transferred
@@ -73,7 +77,7 @@ func (dump *Dump) Checkpoint() *Dump {
 // 2) It has the highest number in its name of all full dumps (directories
 // prefixed with 'd'), i.e. for all directories of the form "dX", its X is
 // maximal.
-func Recover() *Dump {
+func Recover() (*Dump, error) {
 	entries, err := ioutil.ReadDir(env.Getenv().DUMP_PATH)
 	if err != nil {
 		log.Error().
@@ -91,14 +95,15 @@ func Recover() *Dump {
 			latestDumpNum = float64(num)
 		}
 	}
+	if latestDumpNum == math.Inf(-1) {
+		return nil, errors.New("Failed to find a dump directory")
+	}
 
 	latestDump := fmt.Sprintf("d%d", int(latestDumpNum))
 	log.Debug().
 		Str("Dump", latestDump).
 		Msg("Latest possible recovery dump determined")
-	return &Dump{
-		_type: fullDump, nr: int(latestDumpNum), dumpOffset: 0,
-	}
+	return &Dump{_type: fullDump, nr: int(latestDumpNum)}, nil
 }
 
 func (dump Dump) Path() string {
@@ -125,42 +130,38 @@ func (dump Dump) PreDump() bool {
 	return dump._type == preDump
 }
 
-// Return the next dump to dump based on this dump and the dump frequency.
-func (dump Dump) NextDump(dumpFreq int) *Dump {
+// Return the next dump to dump based on this dump and the current chain
+// length.
+func (dump Dump) NextDump(chainLength int) *Dump {
 	t := fullDump
-	if dump.dumpOffset < dumpFreq-1 {
+	maxChainLength := env.Getenv().CHAIN_LENGTH
+	if chainLength < maxChainLength-1 {
 		t = preDump
 	}
-	return &Dump{
-		_type:      t,
-		nr:         dump.nr + 1,
-		dumpOffset: (dump.nr + 1) % dumpFreq,
-	}
+	return &Dump{_type: t, nr: dump.nr + 1}
 }
 
 // Return the next pre-dump based on this dump.
 func (dump Dump) NextPreDump() *Dump {
-	return &Dump{
-		_type:      preDump,
-		nr:         dump.nr + 1,
-		dumpOffset: dump.dumpOffset + 1,
-	}
+	return &Dump{_type: preDump, nr: dump.nr + 1}
 }
 
 // Return the next full dump based on this dump.
 func (dump Dump) NextFullDump() *Dump {
-	return &Dump{
-		_type:      fullDump,
-		nr:         dump.nr + 1,
-		dumpOffset: 0,
-	}
+	return &Dump{_type: fullDump, nr: dump.nr + 1}
 }
 
 // Return the first of all dumps, across all hosts.
 func FirstDump() *Dump {
-	return &Dump{
-		_type:      fullDump,
-		nr:         0,
-		dumpOffset: 0,
-	}
+	return &Dump{_type: preDump, nr: 0}
+}
+
+// Return the first dump of the next chain
+func (dump Dump) NextChainDump() *Dump {
+	return &Dump{_type: preDump, nr: dump.nr + 1}
+}
+
+// Return the dump represented as a parent path to another dump.
+func (dump Dump) ParentPath() string {
+	return fmt.Sprintf("../%s", dump.Base())
 }

@@ -5,7 +5,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	. "github.com/Xarepo/msc-container-migration/internal/dump"
+	"github.com/Xarepo/msc-container-migration/internal/chain"
 	"github.com/Xarepo/msc-container-migration/internal/env"
 	. "github.com/Xarepo/msc-container-migration/internal/ipc_listener"
 	"github.com/Xarepo/msc-container-migration/internal/remote_target"
@@ -83,8 +83,6 @@ type RunnerContext struct {
 	ContainerStatus chan int
 	// The path to the OCI-bundle that the runner's container is created from.
 	BundlePath string
-	// The latest dump that the runner has made, i.e. written to disk.
-	LatestDump *Dump
 	IPCListener
 	rpcPort int
 	status  RunnerStatus
@@ -93,8 +91,9 @@ type RunnerContext struct {
 	Targets []remote_target.RemoteTarget
 	// The address of the source node to listen to for migrations. This will be
 	// empty if the runner is running.
-	Source        string
-	PingInterrupt chan bool
+	Source           string
+	PingInterrupt    chan bool
+	Chain, PrevChain *chain.DumpChain
 }
 
 func New(containerId, bundlePath string) RunnerContext {
@@ -105,10 +104,11 @@ func New(containerId, bundlePath string) RunnerContext {
 		IPCListener:     &USockListener{},
 		rpcPort:         env.Getenv().RPC_PORT,
 		status:          Stopped,
-		LatestDump:      nil,
 		Targets:         []remote_target.RemoteTarget{},
 		Source:          "",
 		PingInterrupt:   make(chan bool),
+		Chain:           chain.New(),
+		PrevChain:       nil,
 	}
 }
 
@@ -170,4 +170,13 @@ func (ctx *RunnerContext) WithLock(f func()) {
 	ctx.lock.Lock()
 	f()
 	ctx.lock.Unlock()
+}
+
+// Creates a new chain for the context.
+// Replaces the previous chain with the current one and then creates a new one
+// for the current.
+func (ctx *RunnerContext) NewChain() {
+	log.Trace().Msg("Replacing chain")
+	ctx.PrevChain = ctx.Chain
+	ctx.Chain = chain.New()
 }

@@ -1,6 +1,10 @@
 package runner
 
 import (
+	"regexp"
+	"sort"
+	"strconv"
+
 	"github.com/rs/zerolog/log"
 
 	"github.com/Xarepo/msc-container-migration/internal/dump"
@@ -27,6 +31,15 @@ func (handler *RPCHandler) Join(
 
 	handler.runner.AddTarget(*target)
 	*reply = handler.runner.ContainerId
+
+	// Transfer chains
+	handler.runner.WithLock(func() {
+		if handler.runner.PrevChain != nil {
+			handler.runner.PrevChain.FullTransfer(target)
+		}
+		handler.runner.Chain.FullTransfer(target)
+	})
+
 	return nil
 }
 
@@ -38,15 +51,27 @@ func (handler *RPCHandler) Ping(args struct{}, reply *bool) error {
 }
 
 type MigrateArgs struct {
-	DumpPath, ContainerId, BundlePath string
+	DumpNames               []string
+	ContainerId, BundlePath string
 }
 
 func (handler *RPCHandler) Migrate(args *MigrateArgs, reply *struct{}) error {
-	log.Debug().Msg("Migration request received")
-	dump := dump.Restore(args.DumpPath)
+	log.Debug().Strs("DumpNames", args.DumpNames).Msg("Migration request received")
+
+	// Sort the names according to their numbers, in ascending order.
+	sort.SliceStable(args.DumpNames, func(i, j int) bool {
+		re_nr := regexp.MustCompile("[0-9]+")
+		n1, _ := strconv.Atoi(re_nr.FindString(args.DumpNames[i]))
+		n2, _ := strconv.Atoi(re_nr.FindString(args.DumpNames[j]))
+		return n1 < n2
+	})
+
+	for _, name := range args.DumpNames {
+		dump := dump.FromString(name)
+		handler.runner.Chain.Push(*dump)
+	}
 	handler.runner.ContainerId = args.ContainerId
 	handler.runner.BundlePath = args.BundlePath
-	handler.runner.LatestDump = dump
 	handler.runner.SetStatus(runner_context.Restoring)
 	return nil
 }
