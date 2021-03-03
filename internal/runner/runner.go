@@ -19,7 +19,6 @@ import (
 	"github.com/Xarepo/msc-container-migration/internal/runc"
 	"github.com/Xarepo/msc-container-migration/internal/runner/runner_context"
 	. "github.com/Xarepo/msc-container-migration/internal/runner/runner_context"
-	"github.com/Xarepo/msc-container-migration/internal/sftp"
 	"github.com/Xarepo/msc-container-migration/internal/utils"
 )
 
@@ -225,11 +224,15 @@ func (runner *Runner) loopRunning() {
 					)
 				}
 
-				for _, target := range runner.Targets {
-					sftp.CopyToRemote(nextDump.Path(), &target)
-				}
+				// for _, target := range runner.Targets {
+				// 	sftp.CopyToRemote(nextDump.Path(), &target)
+				// }
 
 				runner.LatestDump = nextDump
+				runner.Chain.Push(*nextDump)
+				for _, target := range runner.Targets {
+					runner.Chain.Sync(&target)
+				}
 			})
 		case <-pingTick.C:
 			for _, target := range runner.Targets {
@@ -296,8 +299,10 @@ func (runner *Runner) loopMigrating() {
 			nextDump.Path(),
 			runner.LatestDump.Base(),
 		)
-		sftp.CopyToRemote(nextDump.Path(), &runner.Targets[0])
+		// sftp.CopyToRemote(nextDump.Path(), &runner.Targets[0])
 		runner.LatestDump = nextDump
+		runner.Chain.Push(*nextDump)
+		runner.Chain.Sync(&runner.Targets[0])
 
 		// Dump
 		nextDump = nextDump.NextFullDump()
@@ -306,8 +311,10 @@ func (runner *Runner) loopMigrating() {
 			nextDump.Path(),
 			runner.LatestDump.Base(),
 			false)
-		sftp.CopyToRemote(nextDump.Path(), &runner.Targets[0])
+		// sftp.CopyToRemote(nextDump.Path(), &runner.Targets[0])
 		runner.LatestDump = nextDump
+		runner.Chain.Push(*nextDump)
+		runner.Chain.Sync(&runner.Targets[0])
 
 		client, err := rpc.DialHTTP("tcp", runner.Targets[0].RPCAddr())
 		if err != nil {

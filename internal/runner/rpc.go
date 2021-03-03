@@ -27,6 +27,7 @@ func (handler *RPCHandler) Join(
 
 	handler.runner.AddTarget(*target)
 	*reply = handler.runner.ContainerId
+	handler.runner.Chain.FullTransfer(target)
 	return nil
 }
 

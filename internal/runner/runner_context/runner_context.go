@@ -5,6 +5,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/Xarepo/msc-container-migration/internal/chain"
 	. "github.com/Xarepo/msc-container-migration/internal/dump"
 	"github.com/Xarepo/msc-container-migration/internal/env"
 	. "github.com/Xarepo/msc-container-migration/internal/ipc_listener"
@@ -95,6 +96,7 @@ type RunnerContext struct {
 	// empty if the runner is running.
 	Source        string
 	PingInterrupt chan bool
+	Chain         *chain.DumpChain
 }
 
 func New(containerId, bundlePath string) RunnerContext {
@@ -109,6 +111,7 @@ func New(containerId, bundlePath string) RunnerContext {
 		Targets:         []remote_target.RemoteTarget{},
 		Source:          "",
 		PingInterrupt:   make(chan bool),
+		Chain:           chain.New(),
 	}
 }
 
