@@ -125,7 +125,7 @@ func (runner *Runner) runContainer() {
 func (runner *Runner) restoreContainer() {
 	status, err := runc.Restore(
 		runner.ContainerId,
-		runner.LatestDump.Path(),
+		runner.Chain.Latest().Dump().Path(),
 		runner.BundlePath,
 	)
 	if err != nil {
@@ -202,11 +202,9 @@ func (runner *Runner) loopRunning() {
 			runner.WithLock(func() {
 				nextDump := dump.FirstDump()
 				parentPath := ""
-				if runner.LatestDump != nil {
-					nextDump = runner.LatestDump.NextDump(dumpFreq)
-					// Parentpath is relative to the parent directory of the image path
-					// so only the directory name (not the full path) should be used
-					parentPath = runner.LatestDump.Base()
+				if runner.Chain.Latest() != nil {
+					nextDump = runner.Chain.Latest().Dump().NextDump(dumpFreq)
+					parentPath = runner.Chain.Latest().Dump().ParentPath()
 				}
 
 				if nextDump.PreDump() {
@@ -224,11 +222,6 @@ func (runner *Runner) loopRunning() {
 					)
 				}
 
-				// for _, target := range runner.Targets {
-				// 	sftp.CopyToRemote(nextDump.Path(), &target)
-				// }
-
-				runner.LatestDump = nextDump
 				runner.Chain.Push(*nextDump)
 				for _, target := range runner.Targets {
 					runner.Chain.Sync(&target)
@@ -293,14 +286,12 @@ func (runner *Runner) loopMigrating() {
 			Msg("Migrating container")
 
 		// Pre-dump
-		nextDump := runner.LatestDump.NextPreDump()
+		nextDump := runner.Chain.Latest().Dump().NextPreDump()
 		runc.PreDump(
 			runner.ContainerId,
 			nextDump.Path(),
-			runner.LatestDump.Base(),
+			runner.Chain.Latest().Dump().Base(),
 		)
-		// sftp.CopyToRemote(nextDump.Path(), &runner.Targets[0])
-		runner.LatestDump = nextDump
 		runner.Chain.Push(*nextDump)
 		runner.Chain.Sync(&runner.Targets[0])
 
@@ -309,10 +300,8 @@ func (runner *Runner) loopMigrating() {
 		runc.Dump(
 			runner.ContainerId,
 			nextDump.Path(),
-			runner.LatestDump.Base(),
+			"",
 			false)
-		// sftp.CopyToRemote(nextDump.Path(), &runner.Targets[0])
-		runner.LatestDump = nextDump
 		runner.Chain.Push(*nextDump)
 		runner.Chain.Sync(&runner.Targets[0])
 
@@ -323,7 +312,7 @@ func (runner *Runner) loopMigrating() {
 
 		var reply struct{}
 		args := MigrateArgs{
-			DumpPath:    runner.LatestDump.Base(),
+			DumpPath:    runner.Chain.Latest().Dump().Base(),
 			ContainerId: runner.ContainerId,
 			BundlePath:  runner.BundlePath,
 		}
@@ -344,7 +333,7 @@ func (runner *Runner) loopRestoring() {
 		go runner.restoreContainer()
 		log.Info().
 			Str("ContainerId", runner.ContainerId).
-			Str("Dump", runner.LatestDump.Path()).
+			Str("Dump", runner.Chain.Latest().Dump().Path()).
 			Str("Bundle", runner.BundlePath).
 			Msg("Container restored")
 		runner.SetStatusNoLock(runner_context.Running)
@@ -407,10 +396,13 @@ func (runner *Runner) loopStandby() {
 func (runner *Runner) loopRecovery() {
 	log.Trace().Msg("Recovering")
 
-	runner.LatestDump = dump.Recover()
+	// runner.LatestDump = dump.Recover()
+	// TODO: FIX
 	runner.Source = ""
 
-	log.Info().Str("Dump", runner.LatestDump.Path()).Msg("Recovering from dump")
+	log.Info().
+		Str("Dump", runner.Chain.Latest().Dump().Path()).
+		Msg("Recovering from dump")
 	runner.RestoreContainer()
 }
 

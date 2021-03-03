@@ -14,6 +14,10 @@ type chainNode struct {
 	synced bool
 }
 
+func (node chainNode) Dump() *dump.Dump {
+	return node.el
+}
+
 type DumpChain struct {
 	latest *chainNode
 	length int
@@ -26,8 +30,8 @@ func New() *DumpChain {
 	}
 }
 
-func (chain *DumpChain) Latest() chainNode {
-	return *chain.latest
+func (chain *DumpChain) Latest() *chainNode {
+	return chain.latest
 }
 
 func (chain *DumpChain) Push(dump dump.Dump) {

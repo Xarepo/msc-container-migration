@@ -159,8 +159,12 @@ func (dump Dump) NextFullDump() *Dump {
 // Return the first of all dumps, across all hosts.
 func FirstDump() *Dump {
 	return &Dump{
-		_type:      fullDump,
+		_type:      preDump,
 		nr:         0,
 		dumpOffset: 0,
 	}
+}
+
+func (dump Dump) ParentPath() string {
+	return fmt.Sprintf("../%s", dump.Base())
 }

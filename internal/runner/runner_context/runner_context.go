@@ -6,7 +6,6 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/Xarepo/msc-container-migration/internal/chain"
-	. "github.com/Xarepo/msc-container-migration/internal/dump"
 	"github.com/Xarepo/msc-container-migration/internal/env"
 	. "github.com/Xarepo/msc-container-migration/internal/ipc_listener"
 	"github.com/Xarepo/msc-container-migration/internal/remote_target"
@@ -85,7 +84,7 @@ type RunnerContext struct {
 	// The path to the OCI-bundle that the runner's container is created from.
 	BundlePath string
 	// The latest dump that the runner has made, i.e. written to disk.
-	LatestDump *Dump
+	// LatestDump *Dump
 	IPCListener
 	rpcPort int
 	status  RunnerStatus
@@ -107,7 +106,6 @@ func New(containerId, bundlePath string) RunnerContext {
 		IPCListener:     &USockListener{},
 		rpcPort:         env.Getenv().RPC_PORT,
 		status:          Stopped,
-		LatestDump:      nil,
 		Targets:         []remote_target.RemoteTarget{},
 		Source:          "",
 		PingInterrupt:   make(chan bool),

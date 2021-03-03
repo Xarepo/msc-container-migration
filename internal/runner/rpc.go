@@ -47,7 +47,7 @@ func (handler *RPCHandler) Migrate(args *MigrateArgs, reply *struct{}) error {
 	dump := dump.Restore(args.DumpPath)
 	handler.runner.ContainerId = args.ContainerId
 	handler.runner.BundlePath = args.BundlePath
-	handler.runner.LatestDump = dump
+	handler.runner.Chain.Push(*dump)
 	handler.runner.SetStatus(runner_context.Restoring)
 	return nil
 }
