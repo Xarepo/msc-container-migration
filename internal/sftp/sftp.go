@@ -105,7 +105,6 @@ func copyFile(
 	// The only occurring symlinks in the dump directories should be the symlink
 	// to the parent directory.
 	if isSymlink(*file) {
-		// TODO: This is nil at target host after migration, FIX
 		oldName := node.GetPrev().Dump().ParentPath()
 		log.Trace().
 			Str("OldName", oldName).

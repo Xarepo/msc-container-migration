@@ -88,8 +88,8 @@ func (runner *Runner) StartContainer() {
 
 // Restore the container and set the status to running
 func (runner *Runner) RestoreContainer() {
-	// TODO: Bring back
-	// go runner.restoreContainer()
+	go runner.restoreContainer(runner.Chain.Latest().Dump().Path())
+	runner.NewChain()
 	runner.SetStatus(runner_context.Running)
 	log.Debug().Msg("Runner restored")
 }
@@ -312,6 +312,8 @@ func (runner *Runner) loopMigrating() {
 		// Pre-dump
 		nextDump := dump.FirstDump()
 		parentPath := ""
+		// This should only be the case if a migration is executed before the first
+		// dump is made.
 		if runner.Chain.Latest() != nil {
 			nextDump = runner.Chain.Latest().Dump().NextPreDump()
 			parentPath = runner.Chain.Latest().Dump().ParentPath()
@@ -426,8 +428,8 @@ func (runner *Runner) loopStandby() {
 func (runner *Runner) loopRecovery() {
 	log.Trace().Msg("Recovering")
 
-	// runner.LatestDump = dump.Recover()
-	// TODO: FIX
+	latestDump := dump.Recover()
+	runner.Chain.Push(*latestDump)
 	runner.Source = ""
 
 	log.Info().
