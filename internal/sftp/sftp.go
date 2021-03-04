@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 
+	"github.com/pkg/errors"
 	"github.com/pkg/sftp"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/ssh"
@@ -63,6 +64,7 @@ func CopyToRemote(node *chain_node.ChainNode, target *remote_target.RemoteTarget
 	}
 	defer sftpClient.Close()
 
+	// Create dump directory on remote
 	destDir := fmt.Sprintf("%s/%s", target.DumpPath, node.Dump().Base())
 	log.Trace().Str("DestDir", destDir).Msg("Creating dump directory on remote")
 	err = sftpClient.MkdirAll(destDir)
@@ -80,46 +82,56 @@ func CopyToRemote(node *chain_node.ChainNode, target *remote_target.RemoteTarget
 		log.Error().Msg("Failed to collect files for transfer")
 	}
 
+	// Copy files to remote
 	for _, file := range files {
-		log.Trace().Str("File", file).Msg("Transferring file")
-
-		// Copy parent symlinks.
-		// The only occurring symlinks in the dump directories should be the symlink
-		// to the parent directory.
-		if isSymlink(file) {
-			oldName := node.Dump().ParentPath()
-			log.Trace().
-				Str("OldName", oldName).
-				Str("NewName", file).
-				Msg("Creating parent symlink")
-			err := sftpClient.Symlink(oldName, file)
-			if err != nil {
-				log.Error().
-					Str("Error", err.Error()).
-					Msg("Failed to create parent symlink")
-			}
-			continue
-		}
-
-		dstFile, err := sftpClient.Create(path.Join(destDir, filepath.Base(file)))
+		err := copyFile(&file, &destDir, node, sftpClient)
 		if err != nil {
-			log.Error().
-				Str("File", path.Join(destDir, filepath.Base(file))).
+			log.Warn().
+				Str("File", file).
 				Str("Error", err.Error()).
-				Msg("Failed to create remote file")
-			return
-		}
-		defer dstFile.Close()
-
-		f, err := os.Open(file)
-		if err != nil {
-			log.Error().Str("File", file).Msg("Failed to open file")
-			continue
-		}
-		_, err = io.Copy(dstFile, f)
-		if err != nil {
-			log.Error().Str("File", file).Str("Error", err.Error()).Msg("Failed to write file")
-			continue
+				Msg("Failed to transfer file, chain is likely corrupt")
 		}
 	}
+}
+
+func copyFile(
+	file, destDir *string,
+	node *chain_node.ChainNode,
+	sftpClient *sftp.Client,
+) error {
+	log.Trace().Str("File", *file).Msg("Transferring file")
+
+	// Copy parent symlinks.
+	// The only occurring symlinks in the dump directories should be the symlink
+	// to the parent directory.
+	if isSymlink(*file) {
+		// TODO: This is nil at target host after migration, FIX
+		oldName := node.GetPrev().Dump().ParentPath()
+		log.Trace().
+			Str("OldName", oldName).
+			Str("NewName", *file).
+			Msg("Creating parent symlink")
+		err := sftpClient.Symlink(oldName, *file)
+		if err != nil {
+			return errors.Wrap(err, "Failed to create parent symlink")
+		}
+		return nil
+	}
+
+	dstFile, err := sftpClient.Create(path.Join(*destDir, filepath.Base(*file)))
+	if err != nil {
+		return errors.Wrap(err, "Failed to create remote file")
+	}
+	defer dstFile.Close()
+
+	f, err := os.Open(*file)
+	if err != nil {
+		return errors.Wrap(err, "Failed to open file")
+	}
+	_, err = io.Copy(dstFile, f)
+	if err != nil {
+		return errors.Wrap(err, "Failed to write remote file")
+	}
+
+	return nil
 }

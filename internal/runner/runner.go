@@ -287,22 +287,22 @@ func (runner *Runner) loopMigrating() {
 
 		// Pre-dump
 		nextDump := runner.Chain.Latest().Dump().NextPreDump()
+		runner.Chain.Push(*nextDump)
 		runc.PreDump(
 			runner.ContainerId,
 			nextDump.Path(),
-			runner.Chain.Latest().Dump().Base(),
+			runner.Chain.Latest().Dump().ParentPath(),
 		)
-		runner.Chain.Push(*nextDump)
 		runner.Chain.Sync(&runner.Targets[0])
 
 		// Dump
 		nextDump = nextDump.NextFullDump()
+		runner.Chain.Push(*nextDump)
 		runc.Dump(
 			runner.ContainerId,
 			nextDump.Path(),
-			"",
+			runner.Chain.Latest().Dump().ParentPath(),
 			false)
-		runner.Chain.Push(*nextDump)
 		runner.Chain.Sync(&runner.Targets[0])
 
 		client, err := rpc.DialHTTP("tcp", runner.Targets[0].RPCAddr())

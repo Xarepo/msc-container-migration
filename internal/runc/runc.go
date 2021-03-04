@@ -57,9 +57,8 @@ func Dump(id, dumpPath, parentPath string, leaveRunning bool) {
 
 	r := &_runc.Runc{}
 	opts := _runc.CheckpointOpts{
-		ImagePath:     dumpPath,
-		AllowTerminal: true,
-		AllowOpenTCP:  env.Getenv().CRIU_TCP_ESTABLISHED,
+		ImagePath:    dumpPath,
+		AllowOpenTCP: env.Getenv().CRIU_TCP_ESTABLISHED,
 	}
 	if parentPath != "" {
 		opts.ParentPath = parentPath
