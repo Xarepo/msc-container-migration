@@ -55,3 +55,7 @@ func (chain *DumpChain) Sync(target *remote_target.RemoteTarget) {
 		next = next.GetPrev()
 	}
 }
+
+func (chain DumpChain) Length() int {
+	return chain.length
+}

@@ -12,6 +12,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/Xarepo/msc-container-migration/internal/chain"
 	"github.com/Xarepo/msc-container-migration/internal/dump"
 	"github.com/Xarepo/msc-container-migration/internal/env"
 	"github.com/Xarepo/msc-container-migration/internal/ipc"
@@ -88,7 +89,8 @@ func (runner *Runner) StartContainer() {
 
 // Restore the container and set the status to running
 func (runner *Runner) RestoreContainer() {
-	go runner.restoreContainer()
+	// TODO: Bring back
+	// go runner.restoreContainer()
 	runner.SetStatus(runner_context.Running)
 	log.Debug().Msg("Runner restored")
 }
@@ -122,12 +124,8 @@ func (runner *Runner) runContainer() {
 	runner.ContainerStatus <- status
 }
 
-func (runner *Runner) restoreContainer() {
-	status, err := runc.Restore(
-		runner.ContainerId,
-		runner.Chain.Latest().Dump().Path(),
-		runner.BundlePath,
-	)
+func (runner *Runner) restoreContainer(dumpPath string) {
+	status, err := runc.Restore(runner.ContainerId, dumpPath, runner.BundlePath)
 	if err != nil {
 		if status == 137 {
 			log.Warn().Msg("Container exited with status 137 (SIGKILL), assuming it was checkpointed...")
@@ -330,12 +328,13 @@ func (runner *Runner) loopMigrating() {
 func (runner *Runner) loopRestoring() {
 	runner.WithLock(func() {
 		log.Trace().Msg("Restoring container")
-		go runner.restoreContainer()
+		go runner.restoreContainer(runner.Chain.Latest().Dump().Path())
 		log.Info().
 			Str("ContainerId", runner.ContainerId).
 			Str("Dump", runner.Chain.Latest().Dump().Path()).
 			Str("Bundle", runner.BundlePath).
 			Msg("Container restored")
+		runner.Chain = chain.New()
 		runner.SetStatusNoLock(runner_context.Running)
 	})
 }

@@ -1,6 +1,8 @@
 package runner
 
 import (
+	"fmt"
+
 	"github.com/rs/zerolog/log"
 
 	"github.com/Xarepo/msc-container-migration/internal/dump"
@@ -48,6 +50,7 @@ func (handler *RPCHandler) Migrate(args *MigrateArgs, reply *struct{}) error {
 	handler.runner.ContainerId = args.ContainerId
 	handler.runner.BundlePath = args.BundlePath
 	handler.runner.Chain.Push(*dump)
+	fmt.Printf("LENGTH: %d", handler.runner.Chain.Length())
 	handler.runner.SetStatus(runner_context.Restoring)
 	return nil
 }
