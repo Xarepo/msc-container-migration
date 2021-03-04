@@ -12,7 +12,6 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/Xarepo/msc-container-migration/internal/chain"
 	"github.com/Xarepo/msc-container-migration/internal/dump"
 	"github.com/Xarepo/msc-container-migration/internal/env"
 	"github.com/Xarepo/msc-container-migration/internal/ipc"
@@ -198,12 +197,39 @@ func (runner *Runner) loopRunning() {
 		case <-dumpTick.C:
 			// Lock dumping stage as to avoid conflicted states
 			runner.WithLock(func() {
-				nextDump := dump.FirstDump()
+				// There a 3 cases for dumps here
+				// 1) There is no previous chain and the current chain is empty, in
+				// which case the system should be recently started and have never been
+				// dumped (via either regular dumps or dumps taken while migrating).
+				// The next dump should be the first of all dumps and there is no
+				// parent path (empty).
+				// 2) The current chain is not empty.
+				// In which case the latest dump should be used as the basis for the
+				// next dump and the parent path.
+				// 3) The current chain is empty but there is a previous chain. This
+				// means the system is either in the process of migrating (in which
+				// case the restore-dump is the latest in the previous chain) or it has
+				// finished a chain but not yet performed a dump using the new chain.
+				// The next dump should be based on the latest dump of the previous
+				// chain and the parent path should be empty (as to perform a "full"
+				// pre-dump).
+				nextDump := dump.FirstDump() // 1)
 				parentPath := ""
-				if runner.Chain.Latest() != nil {
+				if runner.Chain.Latest() != nil { // 2)
 					nextDump = runner.Chain.Latest().Dump().NextDump(dumpFreq)
 					parentPath = runner.Chain.Latest().Dump().ParentPath()
+				} else if runner.PrevChain != nil && // 3)
+					runner.PrevChain.Latest() != nil {
+					nextDump = runner.PrevChain.Latest().Dump().NextChainDump()
+					parentPath = ""
 				}
+
+				// nextDump := dump.FirstDump()
+				// parentPath := ""
+				// if runner.Chain.Latest() != nil {
+				// 	nextDump = runner.Chain.Latest().Dump().NextDump(dumpFreq)
+				// 	parentPath = runner.Chain.Latest().Dump().ParentPath()
+				// }
 
 				if nextDump.PreDump() {
 					runc.PreDump(
@@ -284,12 +310,17 @@ func (runner *Runner) loopMigrating() {
 			Msg("Migrating container")
 
 		// Pre-dump
-		nextDump := runner.Chain.Latest().Dump().NextPreDump()
+		nextDump := dump.FirstDump()
+		parentPath := ""
+		if runner.Chain.Latest() != nil {
+			nextDump = runner.Chain.Latest().Dump().NextPreDump()
+			parentPath = runner.Chain.Latest().Dump().ParentPath()
+		}
 		runner.Chain.Push(*nextDump)
 		runc.PreDump(
 			runner.ContainerId,
 			nextDump.Path(),
-			runner.Chain.Latest().Dump().ParentPath(),
+			parentPath,
 		)
 		runner.Chain.Sync(&runner.Targets[0])
 
@@ -334,7 +365,7 @@ func (runner *Runner) loopRestoring() {
 			Str("Dump", runner.Chain.Latest().Dump().Path()).
 			Str("Bundle", runner.BundlePath).
 			Msg("Container restored")
-		runner.Chain = chain.New()
+		runner.NewChain()
 		runner.SetStatusNoLock(runner_context.Running)
 	})
 }

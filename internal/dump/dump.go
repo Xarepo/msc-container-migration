@@ -165,6 +165,15 @@ func FirstDump() *Dump {
 	}
 }
 
+// Return the first dump of the next chain
+func (dump Dump) NextChainDump() *Dump {
+	return &Dump{
+		_type:      preDump,
+		nr:         dump.nr + 1,
+		dumpOffset: 0,
+	}
+}
+
 // Return the dump represented as a parent path to another dump.
 func (dump Dump) ParentPath() string {
 	return fmt.Sprintf("../%s", dump.Base())

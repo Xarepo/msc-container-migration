@@ -93,9 +93,9 @@ type RunnerContext struct {
 	Targets []remote_target.RemoteTarget
 	// The address of the source node to listen to for migrations. This will be
 	// empty if the runner is running.
-	Source        string
-	PingInterrupt chan bool
-	Chain         *chain.DumpChain
+	Source           string
+	PingInterrupt    chan bool
+	Chain, PrevChain *chain.DumpChain
 }
 
 func New(containerId, bundlePath string) RunnerContext {
@@ -110,6 +110,7 @@ func New(containerId, bundlePath string) RunnerContext {
 		Source:          "",
 		PingInterrupt:   make(chan bool),
 		Chain:           chain.New(),
+		PrevChain:       nil,
 	}
 }
 
@@ -171,4 +172,13 @@ func (ctx *RunnerContext) WithLock(f func()) {
 	ctx.lock.Lock()
 	f()
 	ctx.lock.Unlock()
+}
+
+// Creates a new chain for the context.
+// Replaces the previous chain with the current one and then creates a new one
+// for the current.
+func (ctx *RunnerContext) NewChain() {
+	log.Trace().Msg("Replacing chain")
+	ctx.PrevChain = ctx.Chain
+	ctx.Chain = chain.New()
 }
