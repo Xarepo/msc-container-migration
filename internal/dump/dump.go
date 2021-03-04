@@ -1,6 +1,7 @@
 package dump
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math"
@@ -73,7 +74,7 @@ func (dump *Dump) Checkpoint() *Dump {
 // 2) It has the highest number in its name of all full dumps (directories
 // prefixed with 'd'), i.e. for all directories of the form "dX", its X is
 // maximal.
-func Recover() *Dump {
+func Recover() (*Dump, error) {
 	entries, err := ioutil.ReadDir(env.Getenv().DUMP_PATH)
 	if err != nil {
 		log.Error().
@@ -91,6 +92,9 @@ func Recover() *Dump {
 			latestDumpNum = float64(num)
 		}
 	}
+	if latestDumpNum == math.Inf(-1) {
+		return nil, errors.New("Failed to find a dump directory")
+	}
 
 	latestDump := fmt.Sprintf("d%d", int(latestDumpNum))
 	log.Debug().
@@ -98,7 +102,7 @@ func Recover() *Dump {
 		Msg("Latest possible recovery dump determined")
 	return &Dump{
 		_type: fullDump, nr: int(latestDumpNum), dumpOffset: 0,
-	}
+	}, nil
 }
 
 func (dump Dump) Path() string {

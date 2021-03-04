@@ -428,7 +428,12 @@ func (runner *Runner) loopStandby() {
 func (runner *Runner) loopRecovery() {
 	log.Trace().Msg("Recovering")
 
-	latestDump := dump.Recover()
+	latestDump, err := dump.Recover()
+	if err != nil {
+		log.Error().Str("Error", err.Error()).Msg("Failed to recover dump")
+		runner.SetStatus(runner_context.Failed)
+		return
+	}
 	runner.Chain.Push(*latestDump)
 	runner.Source = ""
 
