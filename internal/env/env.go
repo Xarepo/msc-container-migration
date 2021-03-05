@@ -3,12 +3,11 @@
 package env
 
 import (
-	"errors"
-	"fmt"
 	"math"
 	"os"
 	"strconv"
 
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
 
@@ -124,9 +123,7 @@ func getString(name, defaultValue string) string {
 func getStringRequired(name string) (string, error) {
 	val := os.Getenv(name)
 	if val == "" {
-		return "", errors.New(
-			fmt.Sprintf("Required environment variable %s not set", name),
-		)
+		return "", errors.Errorf("Required environment variable %s not set", name)
 	}
 	return val, nil
 }
@@ -143,12 +140,10 @@ func getInt(name string, defaultValue int) (int, error) {
 
 	valInt, err := strconv.Atoi(val)
 	if err != nil {
-		return math.MaxInt32, errors.New(
-			fmt.Sprintf(
-				"Failed to parse int from environment variable %s: %s",
-				name,
-				err.Error(),
-			),
+		return math.MaxInt32, errors.Wrapf(
+			err,
+			"Failed to parse int from environment variable %s",
+			name,
 		)
 	}
 
@@ -167,12 +162,10 @@ func getBool(name string, defaultValue bool) (bool, error) {
 
 	valBool, err := strconv.ParseBool(val)
 	if err != nil {
-		return false, errors.New(
-			fmt.Sprintf(
-				"Failed to parse bool from environment variable %s: %s",
-				name,
-				err.Error(),
-			),
+		return false, errors.Wrapf(
+			err,
+			"Failed to parse bool from environment variable %s",
+			name,
 		)
 	}
 	return valBool, nil

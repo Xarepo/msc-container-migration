@@ -68,7 +68,7 @@ func TransferDump(
 	defer sftpClient.Close()
 
 	// Create dump directory on remote
-	destDir := fmt.Sprintf("%s/%s", target.DumpPath, node.Dump().Base())
+	destDir := path.Join(target.DumpPath, node.Dump().Base())
 	log.Trace().Str("DestDir", destDir).Msg("Creating dump directory on remote")
 	err = sftpClient.MkdirAll(destDir)
 	if err != nil {

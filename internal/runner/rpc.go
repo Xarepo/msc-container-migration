@@ -44,7 +44,7 @@ func (handler *RPCHandler) Join(
 }
 
 func (handler *RPCHandler) Ping(args struct{}, reply *bool) error {
-	log.Debug().Msg("PING received")
+	log.Trace().Msg("PING received")
 	handler.runner.PingInterrupt <- true
 	*reply = true
 	return nil
