@@ -309,8 +309,8 @@ func (runner *Runner) loopMigrating() {
 		// Pre-dump
 		nextDump := dump.FirstDump()
 		parentPath := ""
-		// This should only be the case if a migration is executed before the first
-		// dump is made.
+		// Either of these cases should always be true unless a migration is
+		// requested before the first ever dump.
 		if runner.Chain.Latest() != nil {
 			nextDump = runner.Chain.Latest().Dump().NextPreDump()
 			parentPath = runner.Chain.Latest().Dump().ParentPath()
