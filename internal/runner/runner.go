@@ -179,7 +179,6 @@ func (runner *Runner) Loop() {
 }
 
 func (runner *Runner) loopRunning() {
-	dumpFreq := env.Getenv().FULLDUMP_FREQ
 	dumpTick := time.NewTicker(
 		time.Duration(env.Getenv().DUMP_INTERVAL) * time.Second,
 	)
@@ -216,7 +215,7 @@ func (runner *Runner) loopRunning() {
 				nextDump := dump.FirstDump() // 1)
 				parentPath := ""
 				if runner.Chain.Latest() != nil { // 2)
-					nextDump = runner.Chain.Latest().Dump().NextDump(dumpFreq)
+					nextDump = runner.Chain.Latest().Dump().NextDump(runner.Chain.Length())
 					parentPath = runner.Chain.Latest().Dump().ParentPath()
 				} else if runner.PrevChain != nil && // 3)
 					runner.PrevChain.Latest() != nil {

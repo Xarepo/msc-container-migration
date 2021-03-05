@@ -20,6 +20,7 @@ type _env struct {
 	CRIU_TCP_ESTABLISHED                             bool
 	DUMP_INTERVAL, FULLDUMP_FREQ                     int
 	PING_INTERVAL, PING_TIMEOUT, PING_TIMEOUT_SOURCE int
+	CHAIN_LENGTH                                     int
 }
 
 var env _env
@@ -35,6 +36,7 @@ const (
 	_DEFAULT_CRIU_TCP_ESTABLISHED = false
 	_DEFAULT_PING_TIMEOUT_SOURCE  = 3
 	_DEFAULT_FULLDUMP_FREQ        = 3
+	_DEFAULT_CHAIN_LENGTH         = 3
 )
 
 // Initialize the environment.
@@ -96,6 +98,11 @@ func Init() error {
 		"CRIU_TCP_ESTABLISHED",
 		_DEFAULT_CRIU_TCP_ESTABLISHED,
 	)
+	if err != nil {
+		return err
+	}
+
+	env.CHAIN_LENGTH, err = getInt("CHAIN_LENGTH", _DEFAULT_CHAIN_LENGTH)
 	if err != nil {
 		return err
 	}

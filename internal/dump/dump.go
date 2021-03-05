@@ -38,9 +38,6 @@ const (
 type Dump struct {
 	_type dumpType
 	nr    int
-
-	// Offset from previous dump (full). Will always be zero for full dumps.
-	dumpOffset int
 }
 
 // Construct a dump based on a dumpPath.
@@ -52,16 +49,12 @@ func Restore(dumpPath string) *Dump {
 		log.Error().Str("Error", err.Error()).Send()
 	}
 
-	return &Dump{_type: fullDump, nr: nr, dumpOffset: 0}
+	return &Dump{_type: fullDump, nr: nr}
 }
 
 // Construct a checkpoint dump from another dump.
 func (dump *Dump) Checkpoint() *Dump {
-	return &Dump{
-		_type:      checkpoint,
-		dumpOffset: 0,
-		nr:         dump.nr + 1,
-	}
+	return &Dump{_type: checkpoint, nr: dump.nr + 1}
 }
 
 // Retrieve the latest dump possible to recover from, i.e. the last transferred
@@ -100,9 +93,7 @@ func Recover() (*Dump, error) {
 	log.Debug().
 		Str("Dump", latestDump).
 		Msg("Latest possible recovery dump determined")
-	return &Dump{
-		_type: fullDump, nr: int(latestDumpNum), dumpOffset: 0,
-	}, nil
+	return &Dump{_type: fullDump, nr: int(latestDumpNum)}, nil
 }
 
 func (dump Dump) Path() string {
@@ -129,53 +120,35 @@ func (dump Dump) PreDump() bool {
 	return dump._type == preDump
 }
 
-// Return the next dump to dump based on this dump and the dump frequency.
-func (dump Dump) NextDump(dumpFreq int) *Dump {
+// Return the next dump to dump based on this dump and the current chain
+// length.
+func (dump Dump) NextDump(chainLength int) *Dump {
 	t := fullDump
-	if dump.dumpOffset < dumpFreq-1 {
+	maxChainLength := env.Getenv().CHAIN_LENGTH
+	if chainLength < maxChainLength {
 		t = preDump
 	}
-	return &Dump{
-		_type:      t,
-		nr:         dump.nr + 1,
-		dumpOffset: (dump.nr + 1) % dumpFreq,
-	}
+	return &Dump{_type: t, nr: dump.nr + 1}
 }
 
 // Return the next pre-dump based on this dump.
 func (dump Dump) NextPreDump() *Dump {
-	return &Dump{
-		_type:      preDump,
-		nr:         dump.nr + 1,
-		dumpOffset: dump.dumpOffset + 1,
-	}
+	return &Dump{_type: preDump, nr: dump.nr + 1}
 }
 
 // Return the next full dump based on this dump.
 func (dump Dump) NextFullDump() *Dump {
-	return &Dump{
-		_type:      fullDump,
-		nr:         dump.nr + 1,
-		dumpOffset: 0,
-	}
+	return &Dump{_type: fullDump, nr: dump.nr + 1}
 }
 
 // Return the first of all dumps, across all hosts.
 func FirstDump() *Dump {
-	return &Dump{
-		_type:      preDump,
-		nr:         0,
-		dumpOffset: 0,
-	}
+	return &Dump{_type: preDump, nr: 0}
 }
 
 // Return the first dump of the next chain
 func (dump Dump) NextChainDump() *Dump {
-	return &Dump{
-		_type:      preDump,
-		nr:         dump.nr + 1,
-		dumpOffset: 0,
-	}
+	return &Dump{_type: preDump, nr: dump.nr + 1}
 }
 
 // Return the dump represented as a parent path to another dump.
