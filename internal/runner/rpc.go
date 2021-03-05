@@ -1,6 +1,10 @@
 package runner
 
 import (
+	"regexp"
+	"sort"
+	"strconv"
+
 	"github.com/rs/zerolog/log"
 
 	"github.com/Xarepo/msc-container-migration/internal/dump"
@@ -45,15 +49,29 @@ func (handler *RPCHandler) Ping(args struct{}, reply *bool) error {
 }
 
 type MigrateArgs struct {
-	DumpPath, ContainerId, BundlePath string
+	DumpNames               []string
+	ContainerId, BundlePath string
 }
 
 func (handler *RPCHandler) Migrate(args *MigrateArgs, reply *struct{}) error {
-	log.Debug().Msg("Migration request received")
-	dump := dump.Restore(args.DumpPath)
+	// log.Debug().Str("Dumpname", args.DumpName).Msg("Migration request received")
+	log.Debug().Strs("DumpNames", args.DumpNames).Msg("Migration request received")
+	// func (n nameList) method()  {
+
+	// }
+	sort.SliceStable(args.DumpNames, func(i, j int) bool {
+		re_nr := regexp.MustCompile("[0-9]+")
+		n1, _ := strconv.Atoi(re_nr.FindString(args.DumpNames[i]))
+		n2, _ := strconv.Atoi(re_nr.FindString(args.DumpNames[j]))
+		return n1 < n2
+	})
+	log.Error().Strs("AWUHDIUAHWD", args.DumpNames).Send()
+	for _, name := range args.DumpNames {
+		dump := dump.Restore(name)
+		handler.runner.Chain.Push(*dump)
+	}
 	handler.runner.ContainerId = args.ContainerId
 	handler.runner.BundlePath = args.BundlePath
-	handler.runner.Chain.Push(*dump)
 	handler.runner.SetStatus(runner_context.Restoring)
 	return nil
 }

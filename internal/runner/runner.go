@@ -311,8 +311,12 @@ func (runner *Runner) loopMigrating() {
 		// This should only be the case if a migration is executed before the first
 		// dump is made.
 		if runner.Chain.Latest() != nil {
+			log.Error().Msg("I WAS HERE")
 			nextDump = runner.Chain.Latest().Dump().NextPreDump()
 			parentPath = runner.Chain.Latest().Dump().ParentPath()
+		} else if runner.PrevChain != nil && runner.PrevChain.Latest() != nil {
+			nextDump = runner.PrevChain.Latest().Dump().NextChainDump()
+			parentPath = ""
 		}
 		runner.Chain.Push(*nextDump)
 		runc.PreDump(
@@ -338,8 +342,9 @@ func (runner *Runner) loopMigrating() {
 		}
 
 		var reply struct{}
+		log.Error().Strs("AWIUDAWDIAUWhd123", runner.Chain.GetNames()).Send()
 		args := MigrateArgs{
-			DumpPath:    runner.Chain.Latest().Dump().Base(),
+			DumpNames:   runner.Chain.GetNames(),
 			ContainerId: runner.ContainerId,
 			BundlePath:  runner.BundlePath,
 		}

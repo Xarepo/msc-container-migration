@@ -60,6 +60,16 @@ func (chain *DumpChain) Sync(target *remote_target.RemoteTarget) {
 	}
 }
 
+func (chain *DumpChain) GetNames() []string {
+	next := chain.latest
+	var names []string
+	for next != nil {
+		names = append(names, next.Dump().Base())
+		next = next.GetPrev()
+	}
+	return names
+}
+
 func (chain DumpChain) Length() int {
 	return chain.length
 }

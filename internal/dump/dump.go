@@ -40,16 +40,27 @@ type Dump struct {
 	nr    int
 }
 
-// Construct a dump based on a dumpPath.
+// Construct a dump based on a dumpName.
 // Used when restoring containers.
-func Restore(dumpPath string) *Dump {
-	re := regexp.MustCompile("[0-9]+")
-	nr, err := strconv.Atoi(re.FindString(dumpPath))
+func Restore(dumpName string) *Dump {
+	re_nr := regexp.MustCompile("[0-9]+")
+	re_type := regexp.MustCompile("[a-z]+")
+	nr, err := strconv.Atoi(re_nr.FindString(dumpName))
+	_type := re_type.FindString(dumpName)
 	if err != nil {
 		log.Error().Str("Error", err.Error()).Send()
 	}
+	var _dumpType dumpType = -1
+	switch _type {
+	case "p":
+		_dumpType = preDump
+	case "d":
+		_dumpType = fullDump
+	default:
+		log.Panic().Str("DumpName", dumpName).Msg("Failed to reconstruct dump")
+	}
 
-	return &Dump{_type: fullDump, nr: nr}
+	return &Dump{_type: _dumpType, nr: nr}
 }
 
 // Construct a checkpoint dump from another dump.
