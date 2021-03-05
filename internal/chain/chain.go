@@ -45,7 +45,7 @@ func (chain *DumpChain) FullTransfer(target *remote_target.RemoteTarget) {
 		Msg("Performing full transfer of chain to target")
 	next := chain.latest
 	for next != nil {
-		sftp.CopyToRemote(next, target)
+		sftp.TransferDump(next, target)
 		next.SetSynced()
 		next = next.GetPrev()
 	}
@@ -59,7 +59,7 @@ func (chain *DumpChain) Sync(target *remote_target.RemoteTarget) {
 		Msg("Syncing chain to target")
 	next := chain.latest
 	for next != nil && !next.IsSynced() {
-		sftp.CopyToRemote(next, target)
+		sftp.TransferDump(next, target)
 		next.SetSynced()
 		next = next.GetPrev()
 	}

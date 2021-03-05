@@ -27,7 +27,10 @@ func isSymlink(fileName string) bool {
 	return fileInfo.Mode()&os.ModeSymlink != 0
 }
 
-func CopyToRemote(node *chain_node.ChainNode, target *remote_target.RemoteTarget) {
+func TransferDump(
+	node *chain_node.ChainNode,
+	target *remote_target.RemoteTarget,
+) {
 	user := env.Getenv().SSH_USER
 	password := env.Getenv().SSH_PASSWORD
 	log.Debug().
@@ -84,7 +87,7 @@ func CopyToRemote(node *chain_node.ChainNode, target *remote_target.RemoteTarget
 
 	// Copy files to remote
 	for _, file := range files {
-		err := copyFile(&file, &destDir, node, sftpClient)
+		err := transferFile(&file, &destDir, node, sftpClient)
 		if err != nil {
 			log.Warn().
 				Str("File", file).
@@ -94,7 +97,7 @@ func CopyToRemote(node *chain_node.ChainNode, target *remote_target.RemoteTarget
 	}
 }
 
-func copyFile(
+func transferFile(
 	file, destDir *string,
 	node *chain_node.ChainNode,
 	sftpClient *sftp.Client,
