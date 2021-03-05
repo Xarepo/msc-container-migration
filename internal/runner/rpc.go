@@ -54,18 +54,16 @@ type MigrateArgs struct {
 }
 
 func (handler *RPCHandler) Migrate(args *MigrateArgs, reply *struct{}) error {
-	// log.Debug().Str("Dumpname", args.DumpName).Msg("Migration request received")
 	log.Debug().Strs("DumpNames", args.DumpNames).Msg("Migration request received")
-	// func (n nameList) method()  {
 
-	// }
+	// Sort the names according to their numbers, in ascending order.
 	sort.SliceStable(args.DumpNames, func(i, j int) bool {
 		re_nr := regexp.MustCompile("[0-9]+")
 		n1, _ := strconv.Atoi(re_nr.FindString(args.DumpNames[i]))
 		n2, _ := strconv.Atoi(re_nr.FindString(args.DumpNames[j]))
 		return n1 < n2
 	})
-	log.Error().Strs("AWUHDIUAHWD", args.DumpNames).Send()
+
 	for _, name := range args.DumpNames {
 		dump := dump.Restore(name)
 		handler.runner.Chain.Push(*dump)
