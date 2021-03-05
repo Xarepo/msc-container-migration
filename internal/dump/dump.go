@@ -136,7 +136,7 @@ func (dump Dump) PreDump() bool {
 func (dump Dump) NextDump(chainLength int) *Dump {
 	t := fullDump
 	maxChainLength := env.Getenv().CHAIN_LENGTH
-	if chainLength < maxChainLength {
+	if chainLength < maxChainLength-1 {
 		t = preDump
 	}
 	return &Dump{_type: t, nr: dump.nr + 1}
