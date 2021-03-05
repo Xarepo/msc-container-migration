@@ -250,6 +250,10 @@ func (runner *Runner) loopRunning() {
 				for _, target := range runner.Targets {
 					runner.Chain.Sync(&target)
 				}
+
+				if !nextDump.PreDump() {
+					runner.NewChain()
+				}
 			})
 		case <-pingTick.C:
 			for _, target := range runner.Targets {
