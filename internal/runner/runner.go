@@ -224,13 +224,6 @@ func (runner *Runner) loopRunning() {
 					parentPath = ""
 				}
 
-				// nextDump := dump.FirstDump()
-				// parentPath := ""
-				// if runner.Chain.Latest() != nil {
-				// 	nextDump = runner.Chain.Latest().Dump().NextDump(dumpFreq)
-				// 	parentPath = runner.Chain.Latest().Dump().ParentPath()
-				// }
-
 				if nextDump.PreDump() {
 					runc.PreDump(
 						runner.ContainerId,

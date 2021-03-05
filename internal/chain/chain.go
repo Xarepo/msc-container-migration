@@ -25,12 +25,15 @@ func (chain *DumpChain) Latest() *chain_node.ChainNode {
 	return chain.latest
 }
 
+// Add a dump to the end of the chain
 func (chain *DumpChain) Push(dump dump.Dump) {
 	newNode := chain_node.New(&dump, chain.latest, false)
 	chain.latest = newNode
 	chain.length += 1
 }
 
+// Transfers all dumps in the chain regardless of whether or not they have
+// been synced.
 func (chain *DumpChain) FullTransfer(target *remote_target.RemoteTarget) {
 	log.Debug().
 		Str("Target", target.Host).
@@ -43,6 +46,7 @@ func (chain *DumpChain) FullTransfer(target *remote_target.RemoteTarget) {
 	}
 }
 
+// Transfers all dumps in the chain that has not previously been synced.
 func (chain *DumpChain) Sync(target *remote_target.RemoteTarget) {
 	log.Debug().
 		Str("Target", target.Host).
