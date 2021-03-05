@@ -12,6 +12,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/Xarepo/msc-container-migration/internal/chain"
 	"github.com/Xarepo/msc-container-migration/internal/dump"
 	"github.com/Xarepo/msc-container-migration/internal/env"
 	"github.com/Xarepo/msc-container-migration/internal/ipc"
@@ -428,6 +429,15 @@ func (runner *Runner) loopRecovery() {
 	log.Trace().Msg("Recovering")
 
 	latestDump, err := dump.Recover()
+
+	chain, err := chain.ReconstructChain(latestDump.Path())
+	if err != nil {
+		log.Error().Str("Error", err.Error()).Msg("Failed to reconstruct dump chain")
+		runner.SetStatus(runner_context.Failed)
+		return
+	}
+	log.Debug().Strs("Chain", chain).Msg("Chain to restore from determined")
+
 	if err != nil {
 		log.Error().Str("Error", err.Error()).Msg("Failed to recover dump")
 		runner.SetStatus(runner_context.Failed)

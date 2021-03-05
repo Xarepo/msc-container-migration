@@ -1,13 +1,13 @@
 package dump
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"math"
 	"regexp"
 	"strconv"
 
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
 	"github.com/Xarepo/msc-container-migration/internal/env"

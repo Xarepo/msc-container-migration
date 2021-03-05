@@ -33,10 +33,12 @@ func (handler *RPCHandler) Join(
 	*reply = handler.runner.ContainerId
 
 	// Transfer chains
-	if handler.runner.PrevChain != nil {
-		handler.runner.PrevChain.FullTransfer(target)
-	}
-	handler.runner.Chain.FullTransfer(target)
+	handler.runner.WithLock(func() {
+		if handler.runner.PrevChain != nil {
+			handler.runner.PrevChain.FullTransfer(target)
+		}
+		handler.runner.Chain.FullTransfer(target)
+	})
 
 	return nil
 }
