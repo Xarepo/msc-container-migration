@@ -21,7 +21,7 @@ function run_benchmark(){
 		run msc > /dev/null
 
 	sleep $running_time
-	output=$(docker exec -i $container_name bash < scripts/benchmarking/storage.sh)
+	output=$(docker exec -i $container_name bash < scripts/benchmarking/storage/storage.sh)
 	echo "$output"
 	header_end="=========================="
 	printf "%s\n%s\n%s\n" "$header" "$output" "$header_end" > $output_path/$container_name
