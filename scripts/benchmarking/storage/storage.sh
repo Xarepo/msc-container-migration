@@ -1,11 +1,11 @@
-#!/bin/bash
+#!/bin/sh
 DUMP_DIR=/dumps
 DUMPS=$(ls -l $DUMP_DIR | tail -n +2 | awk '{print $9}')
 FULL_DUMPS=$(echo "$DUMPS" | sed -n '/d[0-9]\+/p')
 PRE_DUMPS=$(echo "$DUMPS" | sed -n '/p[0-9]\+/p')
 
 # Sums the size of the dumps. Uses bytes stored rather than entire blocks.
-function sum_dumps() {
+sum_dumps() {
 	local SUM=0
 	for dump in $1 ; do
 		files=$(ls -l $DUMP_DIR/$dump | tail -n +2 | awk '{print $9}')
@@ -26,7 +26,7 @@ NUM_FULL=$([ -n "$FULL_DUMPS" ] && echo "$FULL_DUMPS" | wc -l || echo 0)
 AVG_FULL=$([ $NUM_FULL -ne 0 ] && echo $((SUM_FULL/NUM_FULL)) || echo 0)
 
 
-function present_bytes(){
+present_bytes(){
 	bytes=$1
 	echo "$bytes"B, $(numfmt --to=iec-i --suffix=B $bytes)
 }
