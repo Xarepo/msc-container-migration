@@ -31,6 +31,7 @@ docker run --rm --privileged \
 	-e CHAIN_LENGTH=$CHAIN_LENGTH -e DUMP_INTERVAL=$DUMP_INTERVAL \
 	-v $(pwd)/rootfs:/app/rootfs -v $(pwd)/config.json:/app/config.json msc \
 	run msc > $OUTPUT_PATH/container.log 2>&1 || { echo Failed to run container; exit 1; } &
+sleep 5 # Give some time for the container to start
 
 [ -n "$POST_RUN_HOOK" ] && $POST_RUN_HOOK
 
@@ -49,3 +50,7 @@ stdout_log "$output"
 stdout_log ==========================
 
 docker stop $CONTAINER_NAME > /dev/null
+# Give some time to stop the container.
+# This is needed because the stop command actually finishes before the
+# container is completely stopped.
+sleep 5 
