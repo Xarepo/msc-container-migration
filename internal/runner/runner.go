@@ -183,6 +183,10 @@ func (runner *Runner) loopRunning() {
 	dumpTick := time.NewTicker(
 		time.Duration(env.Getenv().DUMP_INTERVAL) * time.Second,
 	)
+	if !env.Getenv().ENABLE_CONTINOUS_DUMPING {
+		dumpTick.Stop()
+	}
+
 	pingTick := time.NewTicker(
 		time.Duration(env.Getenv().PING_INTERVAL) * time.Second,
 	)
@@ -319,6 +323,7 @@ func (runner *Runner) loopMigrating() {
 			parentPath = ""
 		}
 		runner.Chain.Push(*nextDump)
+		log.Error().Str("PARENT_PATH", parentPath).Send()
 		runc.PreDump(
 			runner.ContainerId,
 			nextDump.Path(),
@@ -326,6 +331,7 @@ func (runner *Runner) loopMigrating() {
 		)
 		runner.Chain.Sync(&runner.Targets[0])
 
+		runner.SetStatus(runner_context.Stopped)
 		// Dump
 		nextDump = nextDump.NextFullDump()
 		runner.Chain.Push(*nextDump)

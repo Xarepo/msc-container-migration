@@ -58,6 +58,15 @@ Parsed as a boolean, see
 [strconv.ParseBool()](https://golang.org/pkg/strconv/#ParseBool) for valid
 formats.
 
+#### ENABLE_CONTINOUS_DUMPING
+
+_required: no, default: `true`_
+
+If set to false no dumps will be made during the runtime before a migration is
+initialized. Migrations will work as normal (but will effectively become
+regular pre-copy migrations), but failover will not work.
+Only intended to use for demonstration purposes.
+
 #### DUMP_INTERVAL
 
 _required: no, default: `5`_

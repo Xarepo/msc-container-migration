@@ -12,6 +12,7 @@ import (
 )
 
 type _env struct {
+	ENABLE_CONTINOUS_DUMPING                         bool
 	LOG_LEVEL                                        string
 	DUMP_PATH                                        string
 	SSH_USER, SSH_PASSWORD                           string
@@ -26,15 +27,16 @@ var env _env
 
 // Default values for the optional environment variables.
 const (
-	_DEFAULT_LOG_LEVEL            = "info"
-	_DEFAULT_DUMP_PATH            = "/dumps"
-	_DEFAULT_RPC_PORT             = 1234
-	_DEFAULT_DUMP_INTERVAL        = 5
-	_DEFAULT_PING_INTERVAL        = 1
-	_DEFAULT_PING_TIMEOUT         = 5
-	_DEFAULT_CRIU_TCP_ESTABLISHED = false
-	_DEFAULT_PING_TIMEOUT_SOURCE  = 3
-	_DEFAULT_CHAIN_LENGTH         = 3
+	_DEFAULT_ENABLE_CONTINOUS_DUMPING = true
+	_DEFAULT_LOG_LEVEL                = "info"
+	_DEFAULT_DUMP_PATH                = "/dumps"
+	_DEFAULT_RPC_PORT                 = 1234
+	_DEFAULT_DUMP_INTERVAL            = 5
+	_DEFAULT_PING_INTERVAL            = 1
+	_DEFAULT_PING_TIMEOUT             = 5
+	_DEFAULT_CRIU_TCP_ESTABLISHED     = false
+	_DEFAULT_PING_TIMEOUT_SOURCE      = 3
+	_DEFAULT_CHAIN_LENGTH             = 3
 )
 
 // Initialize the environment.
@@ -97,6 +99,14 @@ func Init() error {
 	}
 
 	env.CHAIN_LENGTH, err = getInt("CHAIN_LENGTH", _DEFAULT_CHAIN_LENGTH)
+	if err != nil {
+		return err
+	}
+
+	env.ENABLE_CONTINOUS_DUMPING, err = getBool(
+		"ENABLE_CONTINOUS_DUMPING",
+		_DEFAULT_ENABLE_CONTINOUS_DUMPING,
+	)
 	if err != nil {
 		return err
 	}
