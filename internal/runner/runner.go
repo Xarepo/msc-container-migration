@@ -313,17 +313,23 @@ func (runner *Runner) loopMigrating() {
 		// Pre-dump
 		nextDump := dump.FirstDump()
 		parentPath := ""
-		// Either of these cases should always be true unless a migration is
-		// requested before the first ever dump.
 		if runner.Chain.Latest() != nil {
 			nextDump = runner.Chain.Latest().Dump().NextPreDump()
 			parentPath = runner.Chain.Latest().Dump().ParentPath()
-		} else if runner.PrevChain != nil && runner.PrevChain.Latest() != nil {
-			nextDump = runner.PrevChain.Latest().Dump().NextChainDump()
-			parentPath = ""
+		}
+		// If the current chain is empty but the previous one is not when
+		// migrating, rather than creating the first dump in the current chain, the
+		// next dump should be linked to the previous chain as this will be more
+		// effective. This is equivalent to setting the current chain to the
+		// previous chain.
+		if runner.Chain.Latest() == nil &&
+			runner.PrevChain != nil && runner.PrevChain.Latest() != nil {
+			runner.Chain = runner.PrevChain
+			runner.PrevChain = nil
+			nextDump = runner.Chain.Latest().Dump().NextPreDump()
+			parentPath = runner.Chain.Latest().Dump().ParentPath()
 		}
 		runner.Chain.Push(*nextDump)
-		log.Error().Str("PARENT_PATH", parentPath).Send()
 		runc.PreDump(
 			runner.ContainerId,
 			nextDump.Path(),
@@ -331,7 +337,6 @@ func (runner *Runner) loopMigrating() {
 		)
 		runner.Chain.Sync(&runner.Targets[0])
 
-		runner.SetStatus(runner_context.Stopped)
 		// Dump
 		nextDump = nextDump.NextFullDump()
 		runner.Chain.Push(*nextDump)
