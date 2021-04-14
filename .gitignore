@@ -16,3 +16,4 @@ rootfs
 .benchmark
 .inputs
 .results
+*.csv
