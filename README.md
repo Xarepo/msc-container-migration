@@ -11,6 +11,18 @@ where the one on the left stopped.
 
 ![Migration example](assets/migration.gif)
 
+### Failover
+
+This demo shows a failover of a container that increments and prints an integer
+every second. The instance on the left starts the container and the one on the
+right joins the cluster. Eventually the left instance is killed and, after a
+while the one on the right notices it and recovers the container. Notice how
+after the failover the instance on the right does not keep counting from where
+the one on the left stopped, instead it has regress in time to a previous
+state.
+
+![Failover example](assets/failover.gif)
+
 ## Documentation
 
 - [Configuration](docs/configuration.md)
