@@ -17,3 +17,6 @@ rootfs
 .inputs
 .results
 *.csv
+
+#asciinema
+*.cast
