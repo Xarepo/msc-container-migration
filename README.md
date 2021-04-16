@@ -1,3 +1,10 @@
+# Master's thesis
+
+This is the repository for the proof-of-concept (POC) implementation for my
+master's thesis. The POC extends current migration techniques (iterative
+migration) in order to provide both container live migration and failover in a
+unified and container-generic solution.
+
 ## Demo
 
 ### Migration
