@@ -1,3 +1,16 @@
+## Demo
+
+### Migration
+
+This demo shows a migration of a container that increments and prints an
+integer every second. The instance on the left starts the container and the one
+on the right joins the cluster. Eventually the left instance receives a
+migration request and will migrate the container to the instance on the right.
+Notice how after the migration the instance on the right keeps counting from
+where the one on the left stopped.
+
+![Migration example](assets/migration.gif)
+
 ## Documentation
 
 - [Configuration](docs/configuration.md)
