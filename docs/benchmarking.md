@@ -64,3 +64,30 @@ Example:
 ```
 
 The script places the resulting log files in `.benchmark/ping/<date>/`.
+
+### Dump-sizes
+
+The dump sizes are calculated by letting the container specified by the
+OCI-bundle running for an amount of time and then iterating over all the dump
+directories and summing the sizes of all of the dumps' files. The size is found
+using the [stat](https://linux.die.net/man/2/stat) command. Note that the bytes
+size is calculated and not the block size.
+
+As in the case of downtime/total migration time the script reads its input
+parameters from the file specified by the first argument, i.e.:
+
+```
+sh scripts/benchmarking/storage/full.sh <input_file>
+```
+
+The input file follows the following format:
+
+```text
+# Lines starting with # are treated as comments.
+# This is the format of a line:
+# <RUNNING_TIME> <CHAIN_LENGTH> <DUMP_INTERVAL> <POST_RUN_HOOK>
+10 5 2 redis-cli -h 172.17.0.2 --eval redis_populate.lua 1000
+5 3 2 redis-cli -h 172.17.0.2 --eval redis_populate.lua 1000000
+```
+
+The script places the resulting log files in `.benchmark/storage/<date>/`.
