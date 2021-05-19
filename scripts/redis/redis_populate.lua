@@ -3,7 +3,8 @@
 -- to the script.
 redis.call("FLUSHDB")
 for i=1,KEYS[1] do
-    redis.call("SET", i, i)
+    local n = string.format("%.16d", i)
+    redis.call("SET", n, n)
 end
 
 return "Ok!"
